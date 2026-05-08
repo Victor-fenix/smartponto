@@ -1,14 +1,29 @@
 const SENHA_MESTRE = "admin123";
 let indexEdicaoGlobal = null;
 
-// Inicialização
-window.onload = function() {
+// --- INICIALIZAÇÃO COM SINCRONIZAÇÃO AUTOMÁTICA ---
+window.onload = async function() {
+    console.log("Iniciando sistema e sincronizando com a nuvem...");
+    
+    // Isso busca a Ana, a Sara e os outros que já estão no Firebase
+    if (typeof window.recuperarDadosNuvem === "function") {
+        await window.recuperarDadosNuvem(); 
+    }
+
+    // Atualiza o que aparece na tela do computador novo
     exibirPontos();
     atualizarListaFuncionarios();
+    
     if(sessionStorage.getItem('gestorLogado') === 'true') ativarModoGestor();
     mostrarTela('secao-ponto');
 };
 
+// --- FUNÇÃO PARA GARANTIR QUE OS DADOS CHEGUEM NA NUVEM ---
+function sincronizarComFirebase() {
+    if (typeof window.sincronizarManual === "function") {
+        window.sincronizarManual();
+    }
+}
 // --- NAVEGAÇÃO E SEGURANÇA ---
 function abrirLogin() { document.getElementById('tela-login').style.display = 'flex'; }
 function fecharLogin() { document.getElementById('tela-login').style.display = 'none'; }
