@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPonto - Gestão Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="tela-login" style="display:none; position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; align-items:center; justify-content:center;">
+        <div class="login-box">
+            <h2 style="font-size: 28px;">SmartPonto</h2>
+            <p style="color: #7f8c8d; margin-bottom: 25px; font-size: 14px;">Acesso restrito ao Painel de Gestão</p>
+            <input type="text" id="login-usuario" placeholder="Usuário (admin)">
+            <input type="password" id="login-senha" placeholder="Senha">
+            <button onclick="autenticarGestor()" class="btn-entrada" style="width:100%; margin-top:10px;">Entrar no Sistema</button>
+            <button onclick="fecharLogin()" style="background:none; border:none; color:#7f8c8d; margin-top:20px; cursor:pointer; font-size: 13px; font-weight: 600;">Voltar ao Registro de Ponto</button>
+        </div>
+    </div>
+
+    <div id="modal-edicao" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+        <div style="background:#fff; margin:10% auto; padding:35px; border-radius:20px; width:90%; max-width:400px; box-shadow: 0 25px 50px rgba(0,0,0,0.3);">
+            <h3 id="modal-titulo" style="margin-top:0; color:#2c3e50; font-weight: 800;">✏️ Editar Registro</h3>
+            <p id="modal-nome" style="color:#7f8c8d; margin-bottom: 20px;"></p>
+            <label style="font-size:12px; font-weight:bold; color: #34495e; display:block; margin-bottom: 5px;">DATA E HORA:</label>
+            <input type="datetime-local" id="edit-horario">
+            <label style="font-size:12px; font-weight:bold; color: #34495e; display:block; margin-bottom: 5px;">TIPO:</label>
+            <select id="edit-tipo">
+                <option value="Entrada">Entrada</option>
+                <option value="Saída">Saída</option>
+            </select>
+            <div style="display:flex; gap:12px; margin-top: 10px;">
+                <button onclick="salvarEdicaoModal()" class="btn-entrada" style="flex:2;">Salvar</button>
+                <button onclick="fecharModal()" style="flex:1; background:#f1f2f6; border:none; border-radius:10px; cursor:pointer; color: #2c3e50; font-weight: 700;">Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <aside class="sidebar">
+            <h2>SmartPonto</h2>
+            <nav>
+                <ul>
+                    <li><a href="#" id="btn-home" class="active" onclick="mostrarTela('secao-ponto')">🏠 Bater Ponto</a></li>
+                    <div id="menu-admin" style="display: none; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px; padding-top: 20px;">
+                        <p style="font-size: 10px; color: #8e949e; margin-left: 18px; margin-bottom: 12px; font-weight: 800; letter-spacing: 1px;">ADMINISTRAÇÃO</p>
+                        <li><a href="#" onclick="mostrarTela('secao-cadastro')">👤 Funcionários</a></li>
+                        <li><a href="#" onclick="mostrarTela('secao-banco')">📊 Extrato de Horas</a></li>
+                        <li><a href="#" onclick="mostrarTela('secao-ajustes')">🔧 Ajustes de Ponto</a></li>
+                    </div>
+                    <li id="btn-login-admin"><a href="#" onclick="abrirLogin()" style="color: #ffca28; margin-top: 30px; font-weight: 700; cursor:pointer;">🔑 Acesso Gestor</a></li>
+                    <li id="btn-sair-admin" style="display: none;"><a href="#" onclick="sairAdmin()" style="color: #ff4d4d; margin-top: 30px; font-weight: 700; cursor:pointer;">🚪 Sair</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <div id="dashboard-gestor" class="dashboard-cards" style="display: none;">
+                <div class="card"><h3>👥 Total Funcionários</h3><p id="card-total-func">0</p></div>
+                <div class="card" style="border-top-color: #27ae60;"><h3>✅ Batidas Hoje</h3><p id="card-registros-hoje">0</p></div>
+                <div class="card" style="border-top-color: #e74c3c;"><h3>⚠️ Alertas de Débito</h3><p id="card-alertas">0</p></div>
+            </div>
+
+            <section id="secao-ponto" class="modulo-tela">
+                <header><h1>Registro de Ponto</h1></header>
+                <div class="container-ponto">
+                    <input type="password" id="identificador-ponto" placeholder="Digite seu PIN (4 dígitos) ou CPF" maxlength="11" style="text-align: center; font-size: 20px;">
+                    <div class="botoes">
+                        <button class="btn-entrada" onclick="baterPonto('Entrada')">Entrada</button>
+                        <button class="btn-saida" onclick="baterPonto('Saída')">Saída</button>
+                    </div>
+                    <div class="tabela-container">
+                        <table>
+                            <thead><tr><th>Colaborador</th><th>Unidade</th><th>Horário</th><th>Tipo</th></tr></thead>
+                            <tbody id="tabelaPontos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="secao-cadastro" class="modulo-tela" style="display: none;">
+                <header><h1>Gestão de Funcionários</h1></header>
+                <div class="container-ponto">
+                    <input type="text" id="cad-nome" placeholder="Nome Completo">
+                    <input type="text" id="cad-cpf" placeholder="CPF (11 dígitos)">
+                    <input type="password" id="cad-pin" placeholder="Definir PIN de Acesso (4 dígitos)" maxlength="4">
+                    <select id="cad-unidade">
+                        <option value="Sede">Sede Principal</option>
+                        <option value="Cuiabá">Cuiabá - MT (-1h)</option>
+                        <option value="Palmas">Palmas - TO</option>
+                    </select>
+                    <select id="cad-jornada">
+                        <option value="04:00">04h (Aprendiz)</option>
+                        <option value="08:00">08h (Normal)</option>
+                        <option value="12:00">12h (Plantão)</option>
+                    </select>
+                    <button onclick="salvarFuncionario()" class="btn-entrada" style="width: 100%;">Finalizar Cadastro</button>
+                    <div class="tabela-container">
+                        <table>
+                            <thead><tr><th>CPF</th><th>Nome</th><th>Unidade</th><th>Escala</th><th>Ação</th></tr></thead>
+                            <tbody id="listaFuncionarios"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="secao-banco" class="modulo-tela" style="display: none;">
+                <header style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 25px;">
+                    <h1>Extrato de Horas</h1>
+                    <button onclick="exportarRelatorioExcel()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                        📊 Baixar Relatório
+                    </button>
+                </header>
+                <div class="container-ponto">
+                    <div class="filtros-container">
+                        <input type="text" id="busca-extrato" placeholder="🔍 Pesquisar colaborador..." onkeyup="filtrarExtrato()" style="flex: 3; margin-bottom: 0;">
+                        <select id="filtro-unidade-extrato" onchange="filtrarExtrato()" style="flex: 1; margin-bottom: 0;">
+                            <option value="">Todas Unidades</option>
+                            <option value="Sede">Sede</option>
+                            <option value="Cuiabá">Cuiabá</option>
+                            <option value="Palmas">Palmas</option>
+                        </select>
+                    </div>
+                    <div id="alerta-faltas" style="margin-top: 20px;"></div> 
+                    <div class="tabela-container">
+                        <table>
+                            <thead><tr><th>Nome</th><th>Unidade</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th></tr></thead>
+                            <tbody id="listaBancoHoras"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="secao-ajustes" class="modulo-tela" style="display: none;">
+                <header style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 25px;">
+                    <h1>Ajustes de Ponto</h1>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="baixarDaNuvem()" style="background: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            ☁️ Recuperar Nuvem
+                        </button>
+                        <button onclick="sincronizarManual()" style="background: #2c3e50; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            🔄 Sincronizar Agora
+                        </button>
+                    </div>
+                </header>
+                <div class="container-ponto">
+                    <div class="tabela-container">
+                        <table>
+                            <thead><tr><th>Ação</th><th>Nome</th><th>Unidade</th><th>Horário</th><th>Tipo</th><th>Excluir</th></tr></thead>
+                            <tbody id="listaAjustesGeral"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5KwuJDQEF97oyasPkErA6Ayheyrk7zqI",
+            authDomain: "smartponto-3edbd.firebaseapp.com",
+            projectId: "smartponto-3edbd",
+            storageBucket: "smartponto-3edbd.firebasestorage.app",
+            messagingSenderId: "398838648955",
+            appId: "1:398838648955:web:a1817c64a140117e8392de"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.sincronizarManual = async function() {
+            const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+            const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+            try {
+                await setDoc(doc(db, "dados_sistema", "geral"), {
+                    funcionarios,
+                    pontos,
+                    ultimaSincronizacao: new Date().toISOString()
+                });
+                alert("☁️ Backup salvo na nuvem com sucesso!");
+            } catch (e) {
+                console.error("Erro na sincronização:", e);
+                alert("Erro ao salvar na nuvem.");
+            }
+        };
+
+        window.baixarDaNuvem = async function() {
+            if(!confirm("Isso irá substituir os dados deste computador pelos da nuvem. Continuar?")) return;
+            try {
+                const docSnap = await getDoc(doc(db, "dados_sistema", "geral"));
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
+                    localStorage.setItem('funcionarios', JSON.stringify(dados.funcionarios || []));
+                    localStorage.setItem('meusPontos', JSON.stringify(dados.pontos || []));
+                    alert("Dados recuperados da nuvem! O sistema vai reiniciar.");
+                    location.reload();
+                } else {
+                    alert("Nenhum backup encontrado na nuvem.");
+                }
+            } catch (e) {
+                console.error("Erro ao baixar dados:", e);
+                alert("Erro ao recuperar dados.");
+            }
+        };
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
