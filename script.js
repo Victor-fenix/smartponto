@@ -2,15 +2,16 @@ const SENHA_MESTRE = "admin123";
 let indexEdicaoGlobal = null;
 
 // --- INICIALIZAÇÃO COM SINCRONIZAÇÃO AUTOMÁTICA ---
+// Esta parte garante que qualquer computador baixe os dados do Google ao abrir o site
 window.onload = async function() {
     console.log("Iniciando sistema e sincronizando com a nuvem...");
     
-    // Isso busca a Ana, a Sara e os outros que já estão no Firebase
+    // Tenta buscar os funcionários e registros salvos no Firebase
     if (typeof window.recuperarDadosNuvem === "function") {
         await window.recuperarDadosNuvem(); 
     }
 
-    // Atualiza o que aparece na tela do computador novo
+    // Após baixar, atualiza o que aparece na tela
     exibirPontos();
     atualizarListaFuncionarios();
     
@@ -19,11 +20,13 @@ window.onload = async function() {
 };
 
 // --- FUNÇÃO PARA GARANTIR QUE OS DADOS CHEGUEM NA NUVEM ---
+// Toda vez que algo mudar, essa função avisa o Firebase
 function sincronizarComFirebase() {
     if (typeof window.sincronizarManual === "function") {
         window.sincronizarManual();
     }
 }
+
 // --- NAVEGAÇÃO E SEGURANÇA ---
 function abrirLogin() { document.getElementById('tela-login').style.display = 'flex'; }
 function fecharLogin() { document.getElementById('tela-login').style.display = 'none'; }
