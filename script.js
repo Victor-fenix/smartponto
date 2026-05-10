@@ -20,7 +20,7 @@ window.onload = async function() {
 };
 
 // --- FUNÇÃO PARA GARANTIR QUE OS DADOS CHEGUEM NA NUVEM ---
-// Toda vez que algo mudar, essa função avisa o Firebase
+// Toda vez que algo mudar (bater ponto, cadastrar ou excluir), esta função avisa o Firebase
 function sincronizarComFirebase() {
     if (typeof window.sincronizarManual === "function") {
         window.sincronizarManual();
@@ -75,7 +75,6 @@ function baterPonto(tipo) {
     const funcs = JSON.parse(localStorage.getItem('funcionarios') || '[]');
     let func = null;
 
-    // Lógica de Identificação Inteligente
     if (entrada.length === 4) {
         func = funcs.find(f => f.pin === entrada);
     } else if (entrada.length === 11) {
@@ -89,7 +88,6 @@ function baterPonto(tipo) {
     let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
     let agora = new Date();
     
-    // Fuso Cuiabá
     if(func.unidade === "Cuiabá") agora.setHours(agora.getHours() - 1);
 
     pontos.push({ 
@@ -187,13 +185,6 @@ function exportarRelatorioExcel() {
     link.click();
 }
 
-// --- SINCRONIZAÇÃO NUVEM ---
-function sincronizarComFirebase() {
-    if (typeof window.sincronizarManual === "function") {
-        window.sincronizarManual();
-    }
-}
-
 // --- DASHBOARD E CADASTRO ---
 function renderizarDashboard() {
     const funcs = JSON.parse(localStorage.getItem('funcionarios') || '[]');
@@ -236,7 +227,6 @@ function salvarFuncionario() {
     
     let l = JSON.parse(localStorage.getItem('funcionarios') || '[]');
     
-    // Evitar PIN duplicado
     if(l.some(f => f.pin === p)) return alert("Este PIN já está em uso!");
 
     l.push({ 
