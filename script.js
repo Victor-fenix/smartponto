@@ -1,8 +1,76 @@
 const SENHA_MESTRE = "admin123";
-
 let indexEdicaoGlobal = null;
 
-let sincronizandoAgora = false;
+// ======================================================
+// CHAVES DO SISTEMA
+// ======================================================
+
+const STORAGE_FUNCIONARIOS = "funcionarios";
+const STORAGE_PONTOS = "meusPontos";
+
+// ======================================================
+// FUNÇÕES SEGURAS
+// ======================================================
+
+function obterFuncionarios() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(STORAGE_FUNCIONARIOS)
+        ) || [];
+
+    } catch {
+
+        return [];
+
+    }
+
+}
+
+function salvarFuncionarios(funcionarios) {
+
+    localStorage.setItem(
+        STORAGE_FUNCIONARIOS,
+        JSON.stringify(funcionarios)
+    );
+
+}
+
+function obterPontos() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(STORAGE_PONTOS)
+        ) || [];
+
+    } catch {
+
+        return [];
+
+    }
+
+}
+
+function salvarPontos(pontos) {
+
+    localStorage.setItem(
+        STORAGE_PONTOS,
+        JSON.stringify(pontos)
+    );
+
+}
+
+function limparInput(id) {
+
+    const campo = document.getElementById(id);
+
+    if (campo) {
+        campo.value = "";
+    }
+
+}
 
 // ======================================================
 // INICIALIZAÇÃO DO SISTEMA
@@ -14,7 +82,16 @@ window.addEventListener('load', async () => {
 
     try {
 
-        // Recupera dados da nuvem
+        // Cria estrutura inicial
+        if (!localStorage.getItem(STORAGE_FUNCIONARIOS)) {
+            salvarFuncionarios([]);
+        }
+
+        if (!localStorage.getItem(STORAGE_PONTOS)) {
+            salvarPontos([]);
+        }
+
+        // Recupera nuvem
         if (typeof window.recuperarDadosNuvem === "function") {
 
             await window.recuperarDadosNuvem();
@@ -22,7 +99,6 @@ window.addEventListener('load', async () => {
         }
 
         exibirPontos();
-
         atualizarListaFuncionarios();
 
         if (
@@ -49,6 +125,41 @@ window.addEventListener('load', async () => {
 });
 
 // ======================================================
+// ATUALIZAÇÃO ENTRE ABAS
+// ======================================================
+
+window.addEventListener("storage", (evento) => {
+
+    if (
+        evento.key === STORAGE_PONTOS ||
+        evento.key === STORAGE_FUNCIONARIOS
+    ) {
+
+        exibirPontos();
+        atualizarListaFuncionarios();
+        renderizarDashboard();
+
+        if (
+            document.getElementById('secao-ajustes')?.style.display !== 'none'
+        ) {
+
+            atualizarTabelaAjustes();
+
+        }
+
+        if (
+            document.getElementById('secao-banco')?.style.display !== 'none'
+        ) {
+
+            calcularBancoHoras();
+
+        }
+
+    }
+
+});
+
+// ======================================================
 // SINCRONIZAÇÃO FIREBASE
 // ======================================================
 
@@ -67,7 +178,7 @@ async function sincronizarComFirebase() {
     } catch (erro) {
 
         console.error(
-            "Erro sincronização:",
+            "Erro ao sincronizar:",
             erro
         );
 
@@ -80,10 +191,6 @@ async function sincronizarComFirebase() {
 // ======================================================
 
 setInterval(async () => {
-
-    if (sincronizandoAgora) return;
-
-    sincronizandoAgora = true;
 
     try {
 
@@ -103,15 +210,8 @@ setInterval(async () => {
 
                 renderizarDashboard();
 
-                const secaoAjustes =
-                    document.getElementById('secao-ajustes');
-
-                const secaoBanco =
-                    document.getElementById('secao-banco');
-
                 if (
-                    secaoAjustes &&
-                    secaoAjustes.style.display !== 'none'
+                    document.getElementById('secao-ajustes')?.style.display !== 'none'
                 ) {
 
                     atualizarTabelaAjustes();
@@ -119,8 +219,7 @@ setInterval(async () => {
                 }
 
                 if (
-                    secaoBanco &&
-                    secaoBanco.style.display !== 'none'
+                    document.getElementById('secao-banco')?.style.display !== 'none'
                 ) {
 
                     calcularBancoHoras();
@@ -134,13 +233,9 @@ setInterval(async () => {
     } catch (erro) {
 
         console.error(
-            "Erro atualização:",
+            "Erro atualização automática:",
             erro
         );
-
-    } finally {
-
-        sincronizandoAgora = false;
 
     }
 
@@ -152,31 +247,35 @@ setInterval(async () => {
 
 function abrirLogin() {
 
-    document.getElementById('tela-login').style.display = 'flex';
+    document.getElementById(
+        'tela-login'
+    ).style.display = 'flex';
 
 }
 
 function fecharLogin() {
 
-    document.getElementById('tela-login').style.display = 'none';
+    document.getElementById(
+        'tela-login'
+    ).style.display = 'none';
 
 }
 
 function autenticarGestor() {
 
-    const usuario =
+    const user =
         document.getElementById('login-usuario')
         .value
         .trim();
 
-    const senha =
+    const pass =
         document.getElementById('login-senha')
         .value
         .trim();
 
     if (
-        usuario === "admin" &&
-        senha === SENHA_MESTRE
+        user === "admin" &&
+        pass === SENHA_MESTRE
     ) {
 
         sessionStorage.setItem(
@@ -200,13 +299,21 @@ function autenticarGestor() {
 
 function ativarModoGestor() {
 
-    document.getElementById('menu-admin').style.display = 'block';
+    document.getElementById(
+        'menu-admin'
+    ).style.display = 'block';
 
-    document.getElementById('dashboard-gestor').style.display = 'grid';
+    document.getElementById(
+        'dashboard-gestor'
+    ).style.display = 'grid';
 
-    document.getElementById('btn-login-admin').style.display = 'none';
+    document.getElementById(
+        'btn-login-admin'
+    ).style.display = 'none';
 
-    document.getElementById('btn-sair-admin').style.display = 'block';
+    document.getElementById(
+        'btn-sair-admin'
+    ).style.display = 'block';
 
     renderizarDashboard();
 
@@ -214,7 +321,9 @@ function ativarModoGestor() {
 
 function sairAdmin() {
 
-    sessionStorage.removeItem('gestorLogado');
+    sessionStorage.removeItem(
+        'gestorLogado'
+    );
 
     alert("👋 Sessão encerrada");
 
@@ -231,7 +340,10 @@ function mostrarTela(id) {
     const logado =
         sessionStorage.getItem('gestorLogado') === 'true';
 
-    if (!logado && id !== 'secao-ponto') {
+    if (
+        !logado &&
+        id !== 'secao-ponto'
+    ) {
 
         alert("🔒 Acesso restrito");
 
@@ -239,30 +351,33 @@ function mostrarTela(id) {
 
     }
 
-    document.querySelectorAll('.modulo-tela')
+    document
+        .querySelectorAll('.modulo-tela')
         .forEach(secao => {
 
             secao.style.display = 'none';
 
         });
 
-    document.getElementById(id).style.display = 'block';
+    document.getElementById(id)
+        .style.display = 'block';
 
-    document.querySelectorAll('.sidebar nav ul li a')
+    document
+        .querySelectorAll('.sidebar nav ul li a')
         .forEach(link => {
 
             link.classList.remove('active');
 
         });
 
-    const ativo =
+    const linkAtivo =
         document.querySelector(
             `.sidebar nav ul li a[onclick*="${id}"]`
         );
 
-    if (ativo) {
+    if (linkAtivo) {
 
-        ativo.classList.add('active');
+        linkAtivo.classList.add('active');
 
     }
 
@@ -287,41 +402,33 @@ function mostrarTela(id) {
 async function baterPonto(tipo) {
 
     const entrada =
-        document.getElementById('identificador-ponto')
-        .value
-        .trim();
+        document.getElementById(
+            'identificador-ponto'
+        ).value.trim();
 
     const funcionarios =
-        JSON.parse(
-            localStorage.getItem('funcionarios') || '[]'
-        );
+        obterFuncionarios();
 
     let funcionario = null;
 
-    // PIN
-    if (/^\d{4}$/.test(entrada)) {
+    if (entrada.length === 4) {
 
         funcionario =
             funcionarios.find(
                 f => f.pin === entrada
             );
 
-    }
-
-    // CPF
-    else if (/^\d{11}$/.test(entrada)) {
+    } else if (entrada.length === 11) {
 
         funcionario =
             funcionarios.find(
                 f => f.cpf === entrada
             );
 
-    }
-
-    else {
+    } else {
 
         alert(
-            "Digite PIN (4 números) ou CPF (11 números)"
+            "Digite PIN ou CPF válido"
         );
 
         return;
@@ -330,37 +437,23 @@ async function baterPonto(tipo) {
 
     if (!funcionario) {
 
-        alert("❌ Funcionário não encontrado");
-
-        return;
-
-    }
-
-    let pontos =
-        JSON.parse(
-            localStorage.getItem('meusPontos') || '[]'
+        alert(
+            "❌ Funcionário não encontrado"
         );
 
-    // EVITAR DUPLICAÇÃO
-    const ultimoRegistro = pontos
-        .filter(p => p.cpf === funcionario.cpf)
-        .slice(-1)[0];
-
-    if (
-        ultimoRegistro &&
-        ultimoRegistro.tipo === tipo
-    ) {
-
-        alert(`⚠️ Último registro já foi ${tipo}`);
-
         return;
 
     }
+
+    const pontos =
+        obterPontos();
 
     let agora = new Date();
 
     // Ajuste Cuiabá
-    if (funcionario.unidade === "Cuiabá") {
+    if (
+        funcionario.unidade === "Cuiabá"
+    ) {
 
         agora.setHours(
             agora.getHours() - 1
@@ -368,7 +461,25 @@ async function baterPonto(tipo) {
 
     }
 
-    const novoRegistro = {
+    // Evita duplicidade
+    const ultimoRegistro =
+        pontos[pontos.length - 1];
+
+    if (
+        ultimoRegistro &&
+        ultimoRegistro.cpf === funcionario.cpf &&
+        ultimoRegistro.tipo === tipo
+    ) {
+
+        alert(
+            `⚠️ Último registro já é ${tipo}`
+        );
+
+        return;
+
+    }
+
+    pontos.push({
 
         colaborador: funcionario.nome,
 
@@ -380,14 +491,9 @@ async function baterPonto(tipo) {
 
         tipo: tipo
 
-    };
+    });
 
-    pontos.push(novoRegistro);
-
-    localStorage.setItem(
-        'meusPontos',
-        JSON.stringify(pontos)
-    );
+    salvarPontos(pontos);
 
     exibirPontos();
 
@@ -395,12 +501,10 @@ async function baterPonto(tipo) {
 
     await sincronizarComFirebase();
 
-    document.getElementById(
-        'identificador-ponto'
-    ).value = "";
+    limparInput('identificador-ponto');
 
     alert(
-        `✅ ${tipo} registrado para ${funcionario.nome}`
+        `✅ ${tipo} registrado`
     );
 
 }
@@ -412,32 +516,34 @@ async function baterPonto(tipo) {
 function exibirPontos() {
 
     const tabela =
-        document.getElementById('tabelaPontos');
-
-    const pontos =
-        JSON.parse(
-            localStorage.getItem('meusPontos') || '[]'
+        document.getElementById(
+            'tabelaPontos'
         );
 
-    tabela.innerHTML = [...pontos]
+    const pontos =
+        obterPontos();
+
+    tabela.innerHTML =
+        [...pontos]
         .reverse()
         .slice(0, 5)
         .map(p => `
 
-            <tr>
+        <tr>
 
-                <td>${p.colaborador}</td>
+            <td>${p.colaborador}</td>
 
-                <td>${p.unidade || '---'}</td>
+            <td>${p.unidade || '---'}</td>
 
-                <td>
-                    ${new Date(p.horario)
-                        .toLocaleString()}
-                </td>
+            <td>
+                ${new Date(
+                    p.horario
+                ).toLocaleString()}
+            </td>
 
-                <td>${p.tipo}</td>
+            <td>${p.tipo}</td>
 
-            </tr>
+        </tr>
 
         `)
         .join('');
@@ -445,7 +551,7 @@ function exibirPontos() {
 }
 
 // ======================================================
-// FUNCIONÁRIOS
+// SALVAR FUNCIONÁRIO
 // ======================================================
 
 async function salvarFuncionario() {
@@ -458,12 +564,12 @@ async function salvarFuncionario() {
     const cpf =
         document.getElementById('cad-cpf')
         .value
-        .trim();
+        .replace(/\D/g, '');
 
     const pin =
         document.getElementById('cad-pin')
         .value
-        .trim();
+        .replace(/\D/g, '');
 
     if (!nome || !cpf || !pin) {
 
@@ -473,8 +579,7 @@ async function salvarFuncionario() {
 
     }
 
-    // VALIDAR CPF
-    if (!/^\d{11}$/.test(cpf)) {
+    if (cpf.length !== 11) {
 
         alert(
             "CPF deve conter 11 números"
@@ -484,8 +589,7 @@ async function salvarFuncionario() {
 
     }
 
-    // VALIDAR PIN
-    if (!/^\d{4}$/.test(pin)) {
+    if (pin.length !== 4) {
 
         alert(
             "PIN deve conter 4 números"
@@ -495,12 +599,9 @@ async function salvarFuncionario() {
 
     }
 
-    let funcionarios =
-        JSON.parse(
-            localStorage.getItem('funcionarios') || '[]'
-        );
+    const funcionarios =
+        obterFuncionarios();
 
-    // CPF REPETIDO
     if (
         funcionarios.some(
             f => f.cpf === cpf
@@ -513,7 +614,6 @@ async function salvarFuncionario() {
 
     }
 
-    // PIN REPETIDO
     if (
         funcionarios.some(
             f => f.pin === pin
@@ -528,24 +628,25 @@ async function salvarFuncionario() {
 
     funcionarios.push({
 
-        nome: nome,
+        nome,
 
-        cpf: cpf,
+        cpf,
 
-        pin: pin,
+        pin,
 
         unidade:
-            document.getElementById('cad-unidade').value,
+            document.getElementById(
+                'cad-unidade'
+            ).value,
 
         jornada:
-            document.getElementById('cad-jornada').value
+            document.getElementById(
+                'cad-jornada'
+            ).value
 
     });
 
-    localStorage.setItem(
-        'funcionarios',
-        JSON.stringify(funcionarios)
-    );
+    salvarFuncionarios(funcionarios);
 
     atualizarListaFuncionarios();
 
@@ -553,75 +654,78 @@ async function salvarFuncionario() {
 
     await sincronizarComFirebase();
 
-    document.getElementById('cad-nome').value = "";
+    limparInput('cad-nome');
+    limparInput('cad-cpf');
+    limparInput('cad-pin');
 
-    document.getElementById('cad-cpf').value = "";
-
-    document.getElementById('cad-pin').value = "";
-
-    alert("✅ Funcionário cadastrado");
+    alert(
+        "✅ Funcionário cadastrado"
+    );
 
 }
+
+// ======================================================
+// LISTA FUNCIONÁRIOS
+// ======================================================
 
 function atualizarListaFuncionarios() {
 
     const lista =
-        document.getElementById('listaFuncionarios');
-
-    const funcionarios =
-        JSON.parse(
-            localStorage.getItem('funcionarios') || '[]'
+        document.getElementById(
+            'listaFuncionarios'
         );
 
-    lista.innerHTML = funcionarios
-        .map((f, i) => `
+    const funcionarios =
+        obterFuncionarios();
 
-            <tr>
+    lista.innerHTML =
+        funcionarios.map((f, i) => `
 
-                <td>${f.cpf}</td>
+        <tr>
 
-                <td>${f.nome}</td>
+            <td>${f.cpf}</td>
 
-                <td>${f.unidade}</td>
+            <td>${f.nome}</td>
 
-                <td>${f.jornada}</td>
+            <td>${f.unidade}</td>
 
-                <td>
+            <td>${f.jornada}</td>
 
-                    <button onclick="removerFunc(${i})">
+            <td>
 
-                        ❌
+                <button
+                    onclick="removerFunc(${i})"
+                >
+                    ❌
+                </button>
 
-                    </button>
+            </td>
 
-                </td>
-
-            </tr>
+        </tr>
 
         `)
         .join('');
 
 }
 
+// ======================================================
+// REMOVER FUNCIONÁRIO
+// ======================================================
+
 async function removerFunc(i) {
 
     if (
         !confirm(
-            "Deseja excluir este funcionário?"
+            "Deseja excluir?"
         )
     ) return;
 
-    let funcionarios =
-        JSON.parse(
-            localStorage.getItem('funcionarios') || '[]'
-        );
+    const funcionarios =
+        obterFuncionarios();
 
     funcionarios.splice(i, 1);
 
-    localStorage.setItem(
-        'funcionarios',
-        JSON.stringify(funcionarios)
-    );
+    salvarFuncionarios(funcionarios);
 
     atualizarListaFuncionarios();
 
@@ -630,10 +734,3 @@ async function removerFunc(i) {
     await sincronizarComFirebase();
 
 }
-
-// RESTANTE DO CÓDIGO CONTINUA IGUAL
-// MANTENHA:
-// - AJUSTES
-// - DASHBOARD
-// - BANCO DE HORAS
-// - EXPORTAÇÃO CSV
