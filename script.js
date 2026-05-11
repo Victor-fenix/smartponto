@@ -2,77 +2,6 @@ const SENHA_MESTRE = "admin123";
 let indexEdicaoGlobal = null;
 
 // ======================================================
-// CHAVES DO SISTEMA
-// ======================================================
-
-const STORAGE_FUNCIONARIOS = "funcionarios";
-const STORAGE_PONTOS = "meusPontos";
-
-// ======================================================
-// FUNÇÕES SEGURAS
-// ======================================================
-
-function obterFuncionarios() {
-
-    try {
-
-        return JSON.parse(
-            localStorage.getItem(STORAGE_FUNCIONARIOS)
-        ) || [];
-
-    } catch {
-
-        return [];
-
-    }
-
-}
-
-function salvarFuncionarios(funcionarios) {
-
-    localStorage.setItem(
-        STORAGE_FUNCIONARIOS,
-        JSON.stringify(funcionarios)
-    );
-
-}
-
-function obterPontos() {
-
-    try {
-
-        return JSON.parse(
-            localStorage.getItem(STORAGE_PONTOS)
-        ) || [];
-
-    } catch {
-
-        return [];
-
-    }
-
-}
-
-function salvarPontos(pontos) {
-
-    localStorage.setItem(
-        STORAGE_PONTOS,
-        JSON.stringify(pontos)
-    );
-
-}
-
-function limparInput(id) {
-
-    const campo = document.getElementById(id);
-
-    if (campo) {
-        campo.value = "";
-    }
-
-}
-
-// ======================================================
 // INICIALIZAÇÃO DO SISTEMA
 // ======================================================
 
@@ -82,94 +11,38 @@ window.addEventListener('load', async () => {
 
     try {
 
-        // Cria estrutura inicial
-        if (!localStorage.getItem(STORAGE_FUNCIONARIOS)) {
-            salvarFuncionarios([]);
-        }
-
-        if (!localStorage.getItem(STORAGE_PONTOS)) {
-            salvarPontos([]);
-        }
-
-        // Recupera nuvem
+        // Recupera dados da nuvem ao abrir
         if (typeof window.recuperarDadosNuvem === "function") {
-
             await window.recuperarDadosNuvem();
-
         }
 
         exibirPontos();
         atualizarListaFuncionarios();
 
-        if (
-            sessionStorage.getItem('gestorLogado') === 'true'
-        ) {
-
+        if (sessionStorage.getItem('gestorLogado') === 'true') {
             ativarModoGestor();
-
         }
 
         mostrarTela('secao-ponto');
 
-        console.log("✅ Sistema iniciado");
+        console.log("✅ Sistema iniciado com sucesso");
 
     } catch (erro) {
 
-        console.error(
-            "Erro ao iniciar:",
-            erro
-        );
+        console.error("Erro ao iniciar sistema:", erro);
 
     }
 
 });
-
 // ======================================================
-// ATUALIZAÇÃO ENTRE ABAS
-// ======================================================
-
-window.addEventListener("storage", (evento) => {
-
-    if (
-        evento.key === STORAGE_PONTOS ||
-        evento.key === STORAGE_FUNCIONARIOS
-    ) {
-
-        exibirPontos();
-        atualizarListaFuncionarios();
-        renderizarDashboard();
-
-        if (
-            document.getElementById('secao-ajustes')?.style.display !== 'none'
-        ) {
-
-            atualizarTabelaAjustes();
-
-        }
-
-        if (
-            document.getElementById('secao-banco')?.style.display !== 'none'
-        ) {
-
-            calcularBancoHoras();
-
-        }
-
-    }
-
-});
-
-// ======================================================
-// SINCRONIZAÇÃO FIREBASE
+// SINCRONIZAÇÃO AUTOMÁTICA
 // ======================================================
 
 async function sincronizarComFirebase() {
 
     try {
 
-        if (
-            typeof window.sincronizarManual === "function"
-        ) {
+        if (typeof window.sincronizarManual === "function") {
 
             await window.sincronizarManual();
 
@@ -187,7 +60,7 @@ async function sincronizarComFirebase() {
 }
 
 // ======================================================
-// ATUALIZAÇÃO AUTOMÁTICA
+// ATUALIZAÇÃO AUTOMÁTICA ENTRE DISPOSITIVOS
 // ======================================================
 
 setInterval(async () => {
@@ -198,28 +71,78 @@ setInterval(async () => {
             typeof window.recuperarDadosNuvem === "function"
         ) {
 
+            // =========================================
+            // BAIXA DADOS DA NUVEM
+            // =========================================
+
             await window.recuperarDadosNuvem();
 
-            exibirPontos();
+            // =========================================
+            // ATUALIZA REGISTROS
+            // =========================================
 
-            if (
-                sessionStorage.getItem('gestorLogado') === 'true'
-            ) {
+            if (typeof exibirPontos === "function") {
+
+                exibirPontos();
+
+            }
+
+            // =========================================
+            // ATUALIZA FUNCIONÁRIOS
+            // =========================================
+
+            if (typeof atualizarListaFuncionarios === "function") {
 
                 atualizarListaFuncionarios();
 
+            }
+
+            // =========================================
+            // DASHBOARD
+            // =========================================
+
+            if (typeof renderizarDashboard === "function") {
+
                 renderizarDashboard();
 
+            }
+
+            // =========================================
+            // AJUSTES
+            // =========================================
+
+            const secaoAjustes =
+                document.getElementById('secao-ajustes');
+
+            if (
+                secaoAjustes &&
+                secaoAjustes.style.display !== 'none'
+            ) {
+
                 if (
-                    document.getElementById('secao-ajustes')?.style.display !== 'none'
+                    typeof atualizarTabelaAjustes === "function"
                 ) {
 
                     atualizarTabelaAjustes();
 
                 }
 
+            }
+
+            // =========================================
+            // BANCO DE HORAS
+            // =========================================
+
+            const secaoBanco =
+                document.getElementById('secao-banco');
+
+            if (
+                secaoBanco &&
+                secaoBanco.style.display !== 'none'
+            ) {
+
                 if (
-                    document.getElementById('secao-banco')?.style.display !== 'none'
+                    typeof calcularBancoHoras === "function"
                 ) {
 
                     calcularBancoHoras();
@@ -228,12 +151,16 @@ setInterval(async () => {
 
             }
 
+            console.log(
+                "☁️ Sistema sincronizado automaticamente"
+            );
+
         }
 
     } catch (erro) {
 
         console.error(
-            "Erro atualização automática:",
+            "Erro na atualização automática:",
             erro
         );
 
@@ -242,56 +169,35 @@ setInterval(async () => {
 }, 5000);
 
 // ======================================================
-// LOGIN
+// LOGIN E SEGURANÇA
 // ======================================================
 
 function abrirLogin() {
-
-    document.getElementById(
-        'tela-login'
-    ).style.display = 'flex';
-
+    document.getElementById('tela-login').style.display = 'flex';
 }
 
 function fecharLogin() {
-
-    document.getElementById(
-        'tela-login'
-    ).style.display = 'none';
-
+    document.getElementById('tela-login').style.display = 'none';
 }
 
 function autenticarGestor() {
 
-    const user =
-        document.getElementById('login-usuario')
-        .value
-        .trim();
+    const user = document.getElementById('login-usuario').value.trim();
+    const pass = document.getElementById('login-senha').value.trim();
 
-    const pass =
-        document.getElementById('login-senha')
-        .value
-        .trim();
+    if (user === "admin" && pass === SENHA_MESTRE) {
 
-    if (
-        user === "admin" &&
-        pass === SENHA_MESTRE
-    ) {
-
-        sessionStorage.setItem(
-            'gestorLogado',
-            'true'
-        );
+        sessionStorage.setItem('gestorLogado', 'true');
 
         ativarModoGestor();
 
         fecharLogin();
 
-        alert("✅ Login realizado");
+        alert("✅ Login realizado com sucesso!");
 
     } else {
 
-        alert("❌ Usuário ou senha incorretos");
+        alert("❌ Usuário ou senha incorretos!");
 
     }
 
@@ -299,21 +205,11 @@ function autenticarGestor() {
 
 function ativarModoGestor() {
 
-    document.getElementById(
-        'menu-admin'
-    ).style.display = 'block';
+    document.getElementById('menu-admin').style.display = 'block';
+    document.getElementById('dashboard-gestor').style.display = 'grid';
 
-    document.getElementById(
-        'dashboard-gestor'
-    ).style.display = 'grid';
-
-    document.getElementById(
-        'btn-login-admin'
-    ).style.display = 'none';
-
-    document.getElementById(
-        'btn-sair-admin'
-    ).style.display = 'block';
+    document.getElementById('btn-login-admin').style.display = 'none';
+    document.getElementById('btn-sair-admin').style.display = 'block';
 
     renderizarDashboard();
 
@@ -321,9 +217,7 @@ function ativarModoGestor() {
 
 function sairAdmin() {
 
-    sessionStorage.removeItem(
-        'gestorLogado'
-    );
+    sessionStorage.removeItem('gestorLogado');
 
     alert("👋 Sessão encerrada");
 
@@ -337,99 +231,67 @@ function sairAdmin() {
 
 function mostrarTela(id) {
 
-    const logado =
-        sessionStorage.getItem('gestorLogado') === 'true';
+    const logado = sessionStorage.getItem('gestorLogado') === 'true';
 
-    if (
-        !logado &&
-        id !== 'secao-ponto'
-    ) {
+    if (!logado && id !== 'secao-ponto') {
 
-        alert("🔒 Acesso restrito");
+        alert("🔒 Acesso restrito!");
 
         return;
 
     }
 
-    document
-        .querySelectorAll('.modulo-tela')
-        .forEach(secao => {
+    document.querySelectorAll('.modulo-tela').forEach(secao => {
+        secao.style.display = 'none';
+    });
 
-            secao.style.display = 'none';
+    document.getElementById(id).style.display = 'block';
 
-        });
+    document.querySelectorAll('.sidebar nav ul li a').forEach(link => {
+        link.classList.remove('active');
+    });
 
-    document.getElementById(id)
-        .style.display = 'block';
-
-    document
-        .querySelectorAll('.sidebar nav ul li a')
-        .forEach(link => {
-
-            link.classList.remove('active');
-
-        });
-
-    const linkAtivo =
-        document.querySelector(
-            `.sidebar nav ul li a[onclick*="${id}"]`
-        );
+    const linkAtivo = document.querySelector(`.sidebar nav ul li a[onclick*="${id}"]`);
 
     if (linkAtivo) {
-
         linkAtivo.classList.add('active');
-
     }
 
-    if (id === 'secao-ajustes') {
+    if (id === 'secao-ajustes') atualizarTabelaAjustes();
 
-        atualizarTabelaAjustes();
-
-    }
-
-    if (id === 'secao-banco') {
-
-        calcularBancoHoras();
-
-    }
+    if (id === 'secao-banco') calcularBancoHoras();
 
 }
 
 // ======================================================
-// BATER PONTO
+// REGISTRO DE PONTO
 // ======================================================
 
 async function baterPonto(tipo) {
 
-    const entrada =
-        document.getElementById(
-            'identificador-ponto'
-        ).value.trim();
+    const entrada = document.getElementById('identificador-ponto').value.trim();
 
-    const funcionarios =
-        obterFuncionarios();
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
 
     let funcionario = null;
 
+    // Busca por PIN
     if (entrada.length === 4) {
 
-        funcionario =
-            funcionarios.find(
-                f => f.pin === entrada
-            );
+        funcionario = funcionarios.find(f => f.pin === entrada);
 
-    } else if (entrada.length === 11) {
+    }
 
-        funcionario =
-            funcionarios.find(
-                f => f.cpf === entrada
-            );
+    // Busca por CPF
+    else if (entrada.length === 11) {
 
-    } else {
+        funcionario = funcionarios.find(f => f.cpf === entrada);
 
-        alert(
-            "Digite PIN ou CPF válido"
-        );
+    }
+
+    else {
+
+        alert("Digite PIN (4 dígitos) ou CPF (11 números)");
 
         return;
 
@@ -437,63 +299,32 @@ async function baterPonto(tipo) {
 
     if (!funcionario) {
 
-        alert(
-            "❌ Funcionário não encontrado"
-        );
+        alert("❌ Funcionário não encontrado");
 
         return;
 
     }
 
-    const pontos =
-        obterPontos();
+    let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
 
     let agora = new Date();
 
-    // Ajuste Cuiabá
-    if (
-        funcionario.unidade === "Cuiabá"
-    ) {
-
-        agora.setHours(
-            agora.getHours() - 1
-        );
-
+    // Ajuste de fuso Cuiabá
+    if (funcionario.unidade === "Cuiabá") {
+        agora.setHours(agora.getHours() - 1);
     }
 
-    // Evita duplicidade
-    const ultimoRegistro =
-        pontos[pontos.length - 1];
-
-    if (
-        ultimoRegistro &&
-        ultimoRegistro.cpf === funcionario.cpf &&
-        ultimoRegistro.tipo === tipo
-    ) {
-
-        alert(
-            `⚠️ Último registro já é ${tipo}`
-        );
-
-        return;
-
-    }
-
-    pontos.push({
-
+    const novoRegistro = {
         colaborador: funcionario.nome,
-
         cpf: funcionario.cpf,
-
         unidade: funcionario.unidade,
-
         horario: agora.toISOString(),
-
         tipo: tipo
+    };
 
-    });
+    pontos.push(novoRegistro);
 
-    salvarPontos(pontos);
+    localStorage.setItem('meusPontos', JSON.stringify(pontos));
 
     exibirPontos();
 
@@ -501,11 +332,9 @@ async function baterPonto(tipo) {
 
     await sincronizarComFirebase();
 
-    limparInput('identificador-ponto');
+    document.getElementById('identificador-ponto').value = "";
 
-    alert(
-        `✅ ${tipo} registrado`
-    );
+    alert(`✅ ${tipo} registrado para ${funcionario.nome}`);
 
 }
 
@@ -515,61 +344,34 @@ async function baterPonto(tipo) {
 
 function exibirPontos() {
 
-    const tabela =
-        document.getElementById(
-            'tabelaPontos'
-        );
+    const tabela = document.getElementById('tabelaPontos');
 
-    const pontos =
-        obterPontos();
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
 
-    tabela.innerHTML =
-        [...pontos]
+    tabela.innerHTML = [...pontos]
         .reverse()
         .slice(0, 5)
         .map(p => `
-
-        <tr>
-
-            <td>${p.colaborador}</td>
-
-            <td>${p.unidade || '---'}</td>
-
-            <td>
-                ${new Date(
-                    p.horario
-                ).toLocaleString()}
-            </td>
-
-            <td>${p.tipo}</td>
-
-        </tr>
-
+            <tr>
+                <td>${p.colaborador}</td>
+                <td>${p.unidade || '---'}</td>
+                <td>${new Date(p.horario).toLocaleString()}</td>
+                <td>${p.tipo}</td>
+            </tr>
         `)
         .join('');
 
 }
 
 // ======================================================
-// SALVAR FUNCIONÁRIO
+// FUNCIONÁRIOS
 // ======================================================
 
 async function salvarFuncionario() {
 
-    const nome =
-        document.getElementById('cad-nome')
-        .value
-        .trim();
-
-    const cpf =
-        document.getElementById('cad-cpf')
-        .value
-        .replace(/\D/g, '');
-
-    const pin =
-        document.getElementById('cad-pin')
-        .value
-        .replace(/\D/g, '');
+    const nome = document.getElementById('cad-nome').value.trim();
+    const cpf = document.getElementById('cad-cpf').value.trim();
+    const pin = document.getElementById('cad-pin').value.trim();
 
     if (!nome || !cpf || !pin) {
 
@@ -581,9 +383,7 @@ async function salvarFuncionario() {
 
     if (cpf.length !== 11) {
 
-        alert(
-            "CPF deve conter 11 números"
-        );
+        alert("CPF deve conter 11 números");
 
         return;
 
@@ -591,22 +391,16 @@ async function salvarFuncionario() {
 
     if (pin.length !== 4) {
 
-        alert(
-            "PIN deve conter 4 números"
-        );
+        alert("PIN deve conter 4 números");
 
         return;
 
     }
 
-    const funcionarios =
-        obterFuncionarios();
+    let funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
 
-    if (
-        funcionarios.some(
-            f => f.cpf === cpf
-        )
-    ) {
+    // CPF repetido
+    if (funcionarios.some(f => f.cpf === cpf)) {
 
         alert("⚠️ CPF já cadastrado");
 
@@ -614,39 +408,24 @@ async function salvarFuncionario() {
 
     }
 
-    if (
-        funcionarios.some(
-            f => f.pin === pin
-        )
-    ) {
+    // PIN repetido
+    if (funcionarios.some(f => f.pin === pin)) {
 
-        alert("⚠️ PIN já em uso");
+        alert("⚠️ PIN já está em uso");
 
         return;
 
     }
 
     funcionarios.push({
-
         nome,
-
         cpf,
-
         pin,
-
-        unidade:
-            document.getElementById(
-                'cad-unidade'
-            ).value,
-
-        jornada:
-            document.getElementById(
-                'cad-jornada'
-            ).value
-
+        unidade: document.getElementById('cad-unidade').value,
+        jornada: document.getElementById('cad-jornada').value
     });
 
-    salvarFuncionarios(funcionarios);
+    localStorage.setItem('funcionarios', JSON.stringify(funcionarios));
 
     atualizarListaFuncionarios();
 
@@ -654,83 +433,315 @@ async function salvarFuncionario() {
 
     await sincronizarComFirebase();
 
-    limparInput('cad-nome');
-    limparInput('cad-cpf');
-    limparInput('cad-pin');
+    document.getElementById('cad-nome').value = "";
+    document.getElementById('cad-cpf').value = "";
+    document.getElementById('cad-pin').value = "";
 
-    alert(
-        "✅ Funcionário cadastrado"
-    );
+    alert("✅ Funcionário cadastrado");
+
+}
+
+function atualizarListaFuncionarios() {
+
+    const lista = document.getElementById('listaFuncionarios');
+
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+
+    lista.innerHTML = funcionarios.map((f, i) => `
+        <tr>
+            <td>${f.cpf}</td>
+            <td>${f.nome}</td>
+            <td>${f.unidade}</td>
+            <td>${f.jornada}</td>
+            <td>
+                <button onclick="removerFunc(${i})">
+                    ❌
+                </button>
+            </td>
+        </tr>
+    `).join('');
+
+}
+
+async function removerFunc(i) {
+
+    if (!confirm("Deseja excluir este funcionário?")) return;
+
+    let funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+
+    funcionarios.splice(i, 1);
+
+    localStorage.setItem('funcionarios', JSON.stringify(funcionarios));
+
+    atualizarListaFuncionarios();
+
+    renderizarDashboard();
+
+    await sincronizarComFirebase();
 
 }
 
 // ======================================================
-// LISTA FUNCIONÁRIOS
+// AJUSTES DE PONTO
 // ======================================================
 
-function atualizarListaFuncionarios() {
+function atualizarTabelaAjustes() {
 
-    const lista =
-        document.getElementById(
-            'listaFuncionarios'
-        );
+    const lista = document.getElementById("listaAjustesGeral");
 
-    const funcionarios =
-        obterFuncionarios();
+    const pontos = JSON.parse(localStorage.getItem("meusPontos") || "[]");
 
-    lista.innerHTML =
-        funcionarios.map((f, i) => `
+    lista.innerHTML = [...pontos]
+        .reverse()
+        .map((p, idxOriginal) => {
 
-        <tr>
+            const idx = pontos.length - 1 - idxOriginal;
 
-            <td>${f.cpf}</td>
+            return `
+            <tr>
+                <td style="text-align:center">
+                    <button onclick="abrirModal(${idx})">✏️</button>
+                </td>
 
-            <td>${f.nome}</td>
+                <td>${p.colaborador}</td>
 
-            <td>${f.unidade}</td>
+                <td>${p.unidade || '---'}</td>
 
-            <td>${f.jornada}</td>
+                <td>${new Date(p.horario).toLocaleString()}</td>
 
-            <td>
+                <td>${p.tipo}</td>
 
-                <button
-                    onclick="removerFunc(${i})"
-                >
-                    ❌
-                </button>
+                <td style="text-align:center">
+                    <button onclick="excluirPonto(${idx})">🗑️</button>
+                </td>
+            </tr>
+            `;
 
-            </td>
-
-        </tr>
-
-        `)
+        })
         .join('');
 
 }
 
-// ======================================================
-// REMOVER FUNCIONÁRIO
-// ======================================================
+function abrirModal(idx) {
 
-async function removerFunc(i) {
+    const pontos = JSON.parse(localStorage.getItem("meusPontos") || "[]");
 
-    if (
-        !confirm(
-            "Deseja excluir?"
-        )
-    ) return;
+    indexEdicaoGlobal = idx;
 
-    const funcionarios =
-        obterFuncionarios();
+    const ponto = pontos[idx];
 
-    funcionarios.splice(i, 1);
+    document.getElementById('modal-nome').innerText = ponto.colaborador;
 
-    salvarFuncionarios(funcionarios);
+    const data = new Date(ponto.horario);
 
-    atualizarListaFuncionarios();
+    data.setMinutes(data.getMinutes() - data.getTimezoneOffset());
+
+    document.getElementById('edit-horario').value =
+        data.toISOString().slice(0, 16);
+
+    document.getElementById('edit-tipo').value = ponto.tipo;
+
+    document.getElementById('modal-edicao').style.display = 'flex';
+
+}
+
+function fecharModal() {
+
+    document.getElementById('modal-edicao').style.display = 'none';
+
+}
+
+async function salvarEdicaoModal() {
+
+    let pontos = JSON.parse(localStorage.getItem("meusPontos") || "[]");
+
+    const novaData = document.getElementById('edit-horario').value;
+
+    if (!novaData) {
+
+        alert("Selecione uma data");
+
+        return;
+
+    }
+
+    pontos[indexEdicaoGlobal].horario =
+        new Date(novaData).toISOString();
+
+    pontos[indexEdicaoGlobal].tipo =
+        document.getElementById('edit-tipo').value;
+
+    localStorage.setItem("meusPontos", JSON.stringify(pontos));
+
+    fecharModal();
+
+    atualizarTabelaAjustes();
+
+    exibirPontos();
+
+    await sincronizarComFirebase();
+
+}
+
+async function excluirPonto(idx) {
+
+    if (!confirm("Deseja apagar este registro?")) return;
+
+    let pontos = JSON.parse(localStorage.getItem("meusPontos") || '[]');
+
+    pontos.splice(idx, 1);
+
+    localStorage.setItem("meusPontos", JSON.stringify(pontos));
+
+    atualizarTabelaAjustes();
+
+    exibirPontos();
 
     renderizarDashboard();
 
     await sincronizarComFirebase();
+
+}
+
+// ======================================================
+// DASHBOARD
+// ======================================================
+
+function renderizarDashboard() {
+
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+
+    document.getElementById('card-total-func').innerText =
+        funcionarios.length;
+
+    document.getElementById('card-registros-hoje').innerText =
+        pontos.filter(p =>
+            new Date(p.horario).toLocaleDateString() ===
+            new Date().toLocaleDateString()
+        ).length;
+
+}
+
+// ======================================================
+// BANCO DE HORAS
+// ======================================================
+
+function calcularBancoHoras() {
+
+    const lista = document.getElementById("listaBancoHoras");
+
+    const funcionarios = JSON.parse(localStorage.getItem("funcionarios") || '[]');
+
+    const pontos = JSON.parse(localStorage.getItem("meusPontos") || '[]');
+
+    lista.innerHTML = "";
+
+    funcionarios.forEach(funcionario => {
+
+        const registros = pontos.filter(p => p.cpf === funcionario.cpf);
+
+        for (let i = 0; i < registros.length; i++) {
+
+            if (
+                registros[i].tipo === "Entrada" &&
+                registros[i + 1]?.tipo === "Saída"
+            ) {
+
+                const entrada = new Date(registros[i].horario);
+
+                const saida = new Date(registros[i + 1].horario);
+
+                const minutos =
+                    Math.floor((saida - entrada) / 60000);
+
+                lista.innerHTML += `
+                <tr>
+
+                    <td>${funcionario.nome}</td>
+
+                    <td>${funcionario.unidade}</td>
+
+                    <td>${entrada.toLocaleDateString()}</td>
+
+                    <td>
+                        ${entrada.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </td>
+
+                    <td>
+                        ${saida.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </td>
+
+                    <td>${formatarHoras(minutos)}</td>
+
+                    <td>--</td>
+
+                </tr>
+                `;
+
+                i++;
+
+            }
+
+        }
+
+    });
+
+}
+
+function formatarHoras(minutos) {
+
+    const negativo = minutos < 0 ? "-" : "";
+
+    const absoluto = Math.abs(minutos);
+
+    const horas = String(Math.floor(absoluto / 60)).padStart(2, '0');
+
+    const mins = String(absoluto % 60).padStart(2, '0');
+
+    return `${negativo}${horas}:${mins}`;
+
+}
+
+// ======================================================
+// EXPORTAÇÃO CSV
+// ======================================================
+
+function exportarRelatorioExcel() {
+
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+
+    let csv = "Colaborador;Unidade;Data;Hora;Tipo\n";
+
+    pontos.forEach(p => {
+
+        const data = new Date(p.horario);
+
+        csv += `${p.colaborador};${p.unidade || '---'};${data.toLocaleDateString()};${data.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        })};${p.tipo}\n`;
+
+    });
+
+    const blob = new Blob(
+        ["\ufeff" + csv],
+        { type: 'text/csv;charset=utf-8;' }
+    );
+
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+
+    link.download = `SmartPonto_Relatorio.csv`;
+
+    link.click();
 
 }
