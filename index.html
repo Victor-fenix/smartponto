@@ -607,139 +607,246 @@
 
     </div>
 
-    <!-- ====================================================== -->
-    <!-- FIREBASE -->
-    <!-- ====================================================== -->
-
     <script type="module">
 
-        import {
-            initializeApp
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+// ======================================================
+// FIREBASE IMPORTS
+// ======================================================
 
-        import {
-            getFirestore,
-            doc,
-            setDoc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 
-        const firebaseConfig = {
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-            apiKey: "SUA_API_KEY",
+// ======================================================
+// CONFIG FIREBASE
+// ======================================================
 
-            authDomain: "SEU_DOMINIO.firebaseapp.com",
+const firebaseConfig = {
 
-            projectId: "SEU_PROJECT_ID",
+    apiKey: "AIzaSyC5KwuJDQEF97oyasPkErA6Ayheyrk7zqI",
 
-            storageBucket: "SEU_BUCKET.appspot.com",
+    authDomain: "smartponto-3edbd.firebaseapp.com",
 
-            messagingSenderId: "SEU_ID",
+    projectId: "smartponto-3edbd",
 
-            appId: "SEU_APP_ID"
+    storageBucket: "smartponto-3edbd.firebasestorage.app",
 
-        };
+    messagingSenderId: "398838648955",
 
-        const app = initializeApp(firebaseConfig);
+    appId: "1:398838648955:web:a1817c64a140117e8392de"
 
-        const db = getFirestore(app);
+};
 
-        // ======================================================
-        // SALVAR NA NUVEM
-        // ======================================================
+// ======================================================
+// INICIAR FIREBASE
+// ======================================================
 
-        window.sincronizarManual = async function () {
+const app = initializeApp(firebaseConfig);
 
-            try {
+const db = getFirestore(app);
 
-                const funcionarios =
-                    JSON.parse(localStorage.getItem('funcionarios') || '[]');
+// ======================================================
+// SALVAR DADOS NA NUVEM
+// ======================================================
 
-                const pontos =
-                    JSON.parse(localStorage.getItem('meusPontos') || '[]');
+window.sincronizarManual = async function () {
 
-                await setDoc(
-                    doc(db, "dados_sistema", "geral"),
-                    {
-                        funcionarios,
-                        pontos,
-                        ultimaSincronizacao: new Date().toISOString()
-                    }
+    try {
+
+        const funcionarios =
+            JSON.parse(
+                localStorage.getItem("funcionarios") || "[]"
+            );
+
+        const pontos =
+            JSON.parse(
+                localStorage.getItem("meusPontos") || "[]"
+            );
+
+        await setDoc(
+
+            doc(db, "dados_sistema", "geral"),
+
+            {
+                funcionarios: funcionarios,
+
+                pontos: pontos,
+
+                atualizadoEm: new Date().toISOString()
+            }
+
+        );
+
+        console.log("☁️ Dados sincronizados");
+
+    } catch (erro) {
+
+        console.error(
+            "Erro ao sincronizar:",
+            erro
+        );
+
+    }
+
+};
+
+// ======================================================
+// RECUPERAR DADOS DA NUVEM
+// ======================================================
+
+window.recuperarDadosNuvem = async function () {
+
+    try {
+
+        const documento = await getDoc(
+
+            doc(db, "dados_sistema", "geral")
+
+        );
+
+        if (documento.exists()) {
+
+            const dados = documento.data();
+
+            // ======================================================
+            // FUNCIONÁRIOS
+            // ======================================================
+
+            if (dados.funcionarios) {
+
+                localStorage.setItem(
+
+                    "funcionarios",
+
+                    JSON.stringify(
+                        dados.funcionarios
+                    )
+
                 );
 
-                console.log("☁️ Dados sincronizados");
+            }
 
-            } catch (erro) {
+            // ======================================================
+            // PONTOS
+            // ======================================================
 
-                console.error("Erro ao salvar:", erro);
+            if (dados.pontos) {
 
-                alert("Erro ao sincronizar com a nuvem");
+                localStorage.setItem(
+
+                    "meusPontos",
+
+                    JSON.stringify(
+                        dados.pontos
+                    )
+
+                );
 
             }
 
-        };
+            console.log(
+                "☁️ Dados recuperados da nuvem"
+            );
 
-        // ======================================================
-        // BAIXAR DA NUVEM
-        // ======================================================
+            // ======================================================
+            // ATUALIZA TELAS
+            // ======================================================
 
-        window.recuperarDadosNuvem = async function () {
-
-            try {
-
-                const documento =
-                    await getDoc(
-                        doc(db, "dados_sistema", "geral")
-                    );
-
-                if (documento.exists()) {
-
-                    const dados = documento.data();
-
-                    localStorage.setItem(
-                        'funcionarios',
-                        JSON.stringify(dados.funcionarios || [])
-                    );
-
-                    localStorage.setItem(
-                        'meusPontos',
-                        JSON.stringify(dados.pontos || [])
-                    );
-
-                    console.log("☁️ Dados recuperados");
-
-                }
-
-            } catch (erro) {
-
-                console.error("Erro ao recuperar:", erro);
-
+            if (
+                typeof exibirPontos === "function"
+            ) {
+                exibirPontos();
             }
 
-        };
+            if (
+                typeof atualizarListaFuncionarios === "function"
+            ) {
+                atualizarListaFuncionarios();
+            }
 
-        // ======================================================
-        // RECUPERAR MANUALMENTE
-        // ======================================================
+            if (
+                typeof renderizarDashboard === "function"
+            ) {
+                renderizarDashboard();
+            }
 
-        window.baixarDaNuvem = async function () {
+            if (
+                typeof atualizarTabelaAjustes === "function"
+            ) {
+                atualizarTabelaAjustes();
+            }
 
-            if (!confirm(
-                "Deseja substituir os dados locais pelos da nuvem?"
-            )) return;
+            if (
+                typeof calcularBancoHoras === "function"
+            ) {
+                calcularBancoHoras();
+            }
 
-            await window.recuperarDadosNuvem();
+        } else {
 
-            alert("☁️ Dados recuperados!");
+            console.log(
+                "⚠️ Nenhum dado encontrado na nuvem"
+            );
 
-            location.reload();
+        }
 
-        };
+    } catch (erro) {
 
-    </script>
+        console.error(
+            "Erro ao recuperar:",
+            erro
+        );
 
-    <script src="script.js"></script>
+    }
+
+};
+
+// ======================================================
+// RECUPERAR MANUALMENTE
+// ======================================================
+
+window.baixarDaNuvem = async function () {
+
+    const confirmar = confirm(
+
+        "Deseja substituir os dados locais pelos da nuvem?"
+
+    );
+
+    if (!confirmar) return;
+
+    await window.recuperarDadosNuvem();
+
+    alert("☁️ Dados recuperados");
+
+};
+
+// ======================================================
+// AUTO SINCRONIZAÇÃO AO ABRIR
+// ======================================================
+
+await window.recuperarDadosNuvem();
+
+// ======================================================
+// ATUALIZAÇÃO AUTOMÁTICA
+// ======================================================
+
+setInterval(async () => {
+
+    await window.recuperarDadosNuvem();
+
+}, 5000);
+
+</script>
+
+<script src="script.js"></script>
 
 </body>
-
 </html>
