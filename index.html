@@ -2,737 +2,369 @@
 <html lang="pt-br">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>SmartPonto - Gestão Pro</title>
-
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
 
-    <!-- ====================================================== -->
-    <!-- LOGIN -->
-    <!-- ====================================================== -->
-
-    <div id="tela-login" class="modal-login">
-
+    <div id="tela-login" class="modal-login" style="display: none;">
         <div class="login-box">
-
             <h2>SmartPonto</h2>
+            <p>Acesso restrito ao Painel de Gestão</p>
 
-            <p>
-                Acesso restrito ao Painel de Gestão
-            </p>
+            <input type="text" id="login-usuario" placeholder="Usuário (admin)" autocomplete="username">
+            <input type="password" id="login-senha" placeholder="Senha" autocomplete="current-password">
 
-            <input
-                type="text"
-                id="login-usuario"
-                placeholder="Usuário (admin)"
-                autocomplete="username"
-            >
-
-            <input
-                type="password"
-                id="login-senha"
-                placeholder="Senha"
-                autocomplete="current-password"
-            >
-
-            <button
-                onclick="autenticarGestor()"
-                class="btn-entrada largura-total"
-            >
+            <button onclick="autenticarGestor()" class="btn-entrada largura-total">
                 Entrar no Sistema
             </button>
-
-            <button
-                onclick="fecharLogin()"
-                class="btn-voltar-login"
-            >
+            <button onclick="fecharLogin()" class="btn-voltar-login">
                 Voltar ao Registro de Ponto
             </button>
-
         </div>
-
     </div>
 
-    <!-- ====================================================== -->
-    <!-- MODAL EDIÇÃO -->
-    <!-- ====================================================== -->
-
-    <div id="modal-edicao" class="modal-edicao">
-
+    <div id="modal-edicao" class="modal-edicao" style="display: none;">
         <div class="modal-box">
-
-            <h3 id="modal-titulo">
-                ✏️ Editar Registro
-            </h3>
-
+            <h3 id="modal-titulo">✏️ Tratar Ponto / Justificativa</h3>
             <p id="modal-nome"></p>
 
-            <label>
-                DATA E HORA:
-            </label>
+            <div id="campos-ponto-existente">
+                <label>DATA E HORA:</label>
+                <input type="datetime-local" id="edit-horario">
 
-            <input
-                type="datetime-local"
-                id="edit-horario"
-            >
-
-            <label>
-                TIPO:
-            </label>
-
-            <select id="edit-tipo">
-
-                <option value="Entrada">
-                    Entrada
-                </option>
-
-                <option value="Saída">
-                    Saída
-                </option>
-
-            </select>
-
-            <div class="modal-botoes">
-
-                <button
-                    onclick="salvarEdicaoModal()"
-                    class="btn-entrada"
-                >
-                    Salvar
-                </button>
-
-                <button
-                    onclick="fecharModal()"
-                    class="btn-cancelar"
-                >
-                    Fechar
-                </button>
-
+                <label>TIPO:</label>
+                <select id="edit-tipo">
+                    <option value="Entrada">Entrada</option>
+                    <option value="Saída">Saída</option>
+                </select>
             </div>
 
+            <div id="campos-justificativa-falta" style="display:none;">
+                <p style="color: #c62828; font-weight: bold;">⚠️ Ausência Detectada neste dia.</p>
+                <label>Selecione a Justificativa:</label>
+                <select id="edit-ocorrencia-tipo">
+                    <option value="Falta Justificada">📄 Falta Justificada</option>
+                    <option value="Atestado">🏥 Atestado Médico</option>
+                    <option value="Folga">🏖️ Folga</option>
+                    <option value="Férias">🌴 Férias</option>
+                    <option value="Falta Injustificada">🔴 Manter como Falta Injustificada</option>
+                </select>
+            </div>
+
+            <label>Observação / Detalhes:</label>
+            <input type="text" id="edit-observacao" placeholder="Ex: Feriado local em Palmas, atestado anexo, etc.">
+
+            <div class="modal-botoes">
+                <button onclick="salvarEdicaoModal()" class="btn-entrada">Salvar Alterações</button>
+                <button onclick="fecharModal()" class="btn-cancelar">Fechar</button>
+            </div>
         </div>
-
     </div>
-
-    <!-- ====================================================== -->
-    <!-- LAYOUT -->
-    <!-- ====================================================== -->
 
     <div class="main-layout">
 
-        <!-- SIDEBAR -->
         <aside class="sidebar">
-
             <h2>SmartPonto</h2>
-
             <nav>
-
                 <ul>
-
                     <li>
-                        <a
-                            href="#"
-                            class="active"
-                            onclick="mostrarTela('secao-ponto')"
-                        >
+                        <a href="#" class="active" id="link-secao-ponto" onclick="mostrarTela('secao-ponto')">
                             🏠 Bater Ponto
                         </a>
                     </li>
 
-                    <!-- ADMIN -->
-                    <div id="menu-admin" class="menu-admin">
-
-                        <p class="titulo-admin">
-                            ADMINISTRAÇÃO
-                        </p>
-
+                    <div id="menu-admin" class="menu-admin" style="display: none;">
+                        <p class="titulo-admin">ADMINISTRAÇÃO</p>
                         <li>
-                            <a href="#"
-                               onclick="mostrarTela('secao-cadastro')">
-                                👤 Funcionários
-                            </a>
+                            <a href="#" onclick="mostrarTela('secao-cadastro')">👤 Funcionários</a>
                         </li>
-
                         <li>
-                            <a href="#"
-                               onclick="mostrarTela('secao-banco')">
-                                📊 Extrato de Horas
-                            </a>
+                            <a href="#" onclick="mostrarTela('secao-banco')">📊 Extrato & Calendário</a>
                         </li>
-
                         <li>
-                            <a href="#"
-                               onclick="mostrarTela('secao-ajustes')">
-                                🔧 Ajustes de Ponto
-                            </a>
+                            <a href="#" onclick="mostrarTela('secao-ocorrencias')">📋 Histórico Ocorrências</a>
                         </li>
-
+                        <li>
+                            <a href="#" onclick="mostrarTela('secao-ajustes')">🔧 Sincronização Nuvem</a>
+                        </li>
                     </div>
 
-                    <!-- LOGIN -->
                     <li id="btn-login-admin">
-
-                        <a
-                            href="#"
-                            onclick="abrirLogin()"
-                            class="btn-admin-login"
-                        >
-                            🔑 Acesso Gestor
-                        </a>
-
+                        <a href="#" onclick="abrirLogin()" class="btn-admin-login">🔑 Acesso Gestor</a>
                     </li>
 
-                    <!-- SAIR -->
                     <li id="btn-sair-admin" style="display:none;">
-
-                        <a
-                            href="#"
-                            onclick="sairAdmin()"
-                            class="btn-admin-sair"
-                        >
-                            🚪 Sair
-                        </a>
-
+                        <a href="#" onclick="sairAdmin()" class="btn-admin-sair">🚪 Sair</a>
                     </li>
-
                 </ul>
-
             </nav>
-
         </aside>
-
-        <!-- ====================================================== -->
-        <!-- CONTEÚDO -->
-        <!-- ====================================================== -->
 
         <main class="content">
 
-            <!-- DASHBOARD -->
-            <div
-                id="dashboard-gestor"
-                class="dashboard-cards"
-                style="display:none;"
-            >
-
+            <div id="dashboard-gestor" class="dashboard-cards" style="display:none;">
                 <div class="card">
-
-                    <h3>
-                        👥 Total Funcionários
-                    </h3>
-
-                    <p id="card-total-func">
-                        0
-                    </p>
-
+                    <h3>👥 Total Funcionários</h3>
+                    <p id="card-total-func">0</p>
                 </div>
-
                 <div class="card card-verde">
-
-                    <h3>
-                        ✅ Batidas Hoje
-                    </h3>
-
-                    <p id="card-registros-hoje">
-                        0
-                    </p>
-
+                    <h3>✅ Batidas Hoje</h3>
+                    <p id="card-registros-hoje">0</p>
                 </div>
-
+                <div class="card card-amarelo">
+                    <h3>🏥 Afastamentos</h3>
+                    <p id="card-atestados-hoje">0</p>
+                </div>
                 <div class="card card-vermelho">
-
-                    <h3>
-                        ⚠️ Alertas de Débito
-                    </h3>
-
-                    <p id="card-alertas">
-                        0
-                    </p>
-
+                    <h3>⚠️ Alertas</h3>
+                    <p id="card-alertas-criticos">0</p>
                 </div>
-
             </div>
 
-            <!-- ====================================================== -->
-            <!-- BATER PONTO -->
-            <!-- ====================================================== -->
-
-            <section
-                id="secao-ponto"
-                class="modulo-tela"
-            >
-
+            <section id="secao-ponto" class="modulo-tela">
                 <header>
                     <h1>Registro de Ponto</h1>
                 </header>
-
                 <div class="container-ponto">
-
-                    <input
-                        type="password"
-                        id="identificador-ponto"
-                        placeholder="Digite seu PIN ou CPF"
-                        maxlength="11"
-                        class="input-ponto"
-                    >
-
+                    <input type="password" id="identificador-ponto" placeholder="Digite seu PIN ou CPF" maxlength="11" class="input-ponto">
                     <div class="botoes">
-
-                        <button
-                            class="btn-entrada"
-                            onclick="baterPonto('Entrada')"
-                        >
-                            Entrada
-                        </button>
-
-                        <button
-                            class="btn-saida"
-                            onclick="baterPonto('Saída')"
-                        >
-                            Saída
-                        </button>
-
+                        <button class="btn-entrada" onclick="baterPonto('Entrada')">Entrada</button>
+                        <button class="btn-saida" onclick="baterPonto('Saída')">Saída</button>
                     </div>
-
                     <div class="tabela-container">
-
                         <table>
-
                             <thead>
-
                                 <tr>
-
                                     <th>Colaborador</th>
-
                                     <th>Unidade</th>
-
                                     <th>Horário</th>
-
                                     <th>Tipo</th>
-
                                 </tr>
-
                             </thead>
-
                             <tbody id="tabelaPontos"></tbody>
-
                         </table>
-
                     </div>
-
                 </div>
-
             </section>
 
-            <!-- ====================================================== -->
-            <!-- FUNCIONÁRIOS -->
-            <!-- ====================================================== -->
-
-            <section
-                id="secao-cadastro"
-                class="modulo-tela"
-                style="display:none;"
-            >
-
+            <section id="secao-cadastro" class="modulo-tela" style="display:none;">
                 <header>
                     <h1>Gestão de Funcionários</h1>
                 </header>
-
                 <div class="container-ponto">
-
-                    <input
-                        type="text"
-                        id="cad-nome"
-                        placeholder="Nome Completo"
-                    >
-
-                    <input
-                        type="text"
-                        id="cad-cpf"
-                        placeholder="CPF (11 dígitos)"
-                        maxlength="11"
-                    >
-
-                    <input
-                        type="password"
-                        id="cad-pin"
-                        placeholder="PIN (4 dígitos)"
-                        maxlength="4"
-                    >
-
+                    <input type="text" id="cad-nome" placeholder="Nome Completo">
+                    <input type="text" id="cad-cpf" placeholder="CPF (Apenas números)" maxlength="11">
+                    <input type="password" id="cad-pin" placeholder="PIN (Apenas números)" maxlength="4">
+                    
                     <select id="cad-unidade">
-
-                        <option value="Sede">
-                            Sede Principal
-                        </option>
-
-                        <option value="Cuiabá">
-                            Cuiabá - MT (-1h)
-                        </option>
-
-                        <option value="Palmas">
-                            Palmas - TO
-                        </option>
-
+                        <option value="Sede">Sede Principal</option>
+                        <option value="Cuiabá">Cuiabá - MT (-1h)</option>
+                        <option value="Palmas">Palmas - TO</option>
                     </select>
 
                     <select id="cad-jornada">
-
-                        <option value="04:00">
-                            04h (Aprendiz)
-                        </option>
-
-                        <option value="08:00">
-                            08h (Normal)
-                        </option>
-
-                        <option value="12:00">
-                            12h (Plantão)
-                        </option>
-
+                        <option value="04:00">04h (Aprendiz)</option>
+                        <option value="08:00">08h (Normal)</option>
+                        <option value="12:00">12h (Plantão)</option>
                     </select>
 
-                    <button
-                        onclick="salvarFuncionario()"
-                        class="btn-entrada largura-total"
-                    >
+                    <button onclick="salvarFuncionario()" class="btn-entrada largura-total">
                         Finalizar Cadastro
                     </button>
 
                     <div class="tabela-container">
-
                         <table>
-
                             <thead>
-
                                 <tr>
-
                                     <th>CPF</th>
-
                                     <th>Nome</th>
-
                                     <th>Unidade</th>
-
                                     <th>Escala</th>
-
                                     <th>Ação</th>
-
                                 </tr>
-
                             </thead>
-
                             <tbody id="listaFuncionarios"></tbody>
-
                         </table>
-
                     </div>
-
                 </div>
-
             </section>
 
-            <!-- ====================================================== -->
-            <!-- EXTRATO -->
-            <!-- ====================================================== -->
-
-            <section
-                id="secao-banco"
-                class="modulo-tela"
-                style="display:none;"
-            >
-
+            <section id="secao-banco" class="modulo-tela" style="display:none;">
                 <header class="header-flex">
-
-                    <h1>Extrato de Horas</h1>
-
-                    <button
-                        onclick="exportarRelatorioExcel()"
-                        class="btn-exportar"
-                    >
-                        📊 Baixar Relatório
+                    <h1>📊 Extrato Integrado & Controle de Horas</h1>
+                    <button onclick="exportarRelatorioExcel()" class="btn-exportar">
+                        📥 Baixar Relatório Completo
                     </button>
-
                 </header>
-
+                
                 <div class="container-ponto">
-
-                    <div class="filtros-container">
-
-                        <input
-                            type="text"
-                            id="busca-extrato"
-                            placeholder="🔍 Pesquisar colaborador..."
-                        >
-
-                        <select id="filtro-unidade-extrato">
-
-                            <option value="">
-                                Todas Unidades
-                            </option>
-
-                            <option value="Sede">
-                                Sede
-                            </option>
-
-                            <option value="Cuiabá">
-                                Cuiabá
-                            </option>
-
-                            <option value="Palmas">
-                                Palmas
-                            </option>
-
+                    <div class="filtros-container" style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <select id="filtro-funcionario-extrato" onchange="atualizarVisualizacaoMaster()" style="flex: 2;"></select>
+                        <input type="month" id="filtro-mes-extrato" onchange="atualizarVisualizacaoMaster()" style="flex: 1;">
+                        <select id="filtro-unidade-extrato" onchange="atualizarVisualizacaoMaster()" style="flex: 1;">
+                            <option value="">Todas Unidades</option>
+                            <option value="Sede">Sede</option>
+                            <option value="Cuiabá">Cuiabá</option>
+                            <option value="Palmas">Palmas</option>
                         </select>
-
                     </div>
 
-                    <div id="alerta-faltas"></div>
+                    <div style="display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 20px; margin-bottom: 25px;">
+                        <div class="card" style="padding: 15px; background: #fff; border-radius: 8px;">
+                            <h4 style="margin-top:0; margin-bottom:15px; display:flex; justify-content:space-between;">
+                                📅 Calendário de Frequência 
+                                <span style="font-size:12px; font-weight:normal; color:#666;">Vermelho indica ausência sem justificativa</span>
+                            </h4>
+                            <div id="grade-calendario-ponto" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center;"></div>
+                        </div>
 
+                        <div class="card card-cinza" style="padding: 15px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <h4 style="margin-top:0;">📊 Saldo Acumulado no Mês</h4>
+                            <div style="font-size: 14px; line-height: 2;">
+                                <div>⏱️ Horas Trabalhadas: <strong id="resumo-horas-trabalhadas" style="color: #27ae60;">00:00</strong></div>
+                                <div>🚀 Horas Extras (Crédito): <strong id="resumo-horas-extras" style="color: #2e7d32;">00:00</strong></div>
+                                <div>📉 Horas Negativas (Débito): <strong id="resumo-horas-negativas" style="color: #c62828;">00:00</strong></div>
+                                <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
+                                <div style="font-size:16px;">💰 Saldo Final: <strong id="resumo-saldo-final">00:00</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-bottom: 10px;">📋 Espelho de Ponto Diário</h4>
                     <div class="tabela-container">
-
                         <table>
-
                             <thead>
-
                                 <tr>
-
-                                    <th>Nome</th>
-
-                                    <th>Unidade</th>
-
                                     <th>Data</th>
-
+                                    <th>Nome</th>
+                                    <th>Unidade</th>
                                     <th>Entrada</th>
-
                                     <th>Saída</th>
-
                                     <th>Trabalhado</th>
-
                                     <th>Saldo</th>
-
+                                    <th>Ações</th>
                                 </tr>
-
                             </thead>
-
                             <tbody id="listaBancoHoras"></tbody>
-
                         </table>
-
                     </div>
-
                 </div>
-
             </section>
 
-            <!-- ====================================================== -->
-            <!-- AJUSTES -->
-            <!-- ====================================================== -->
-
-            <section
-                id="secao-ajustes"
-                class="modulo-tela"
-                style="display:none;"
-            >
-
-                <header class="header-flex">
-
-                    <h1>Ajustes de Ponto</h1>
-
-                    <div class="acoes-ajustes">
-
-                        <button
-                            onclick="baixarDaNuvem()"
-                            class="btn-nuvem"
-                        >
-                            ☁️ Recuperar Nuvem
-                        </button>
-
-                        <button
-                            onclick="sincronizarManual()"
-                            class="btn-sync"
-                        >
-                            🔄 Sincronizar Agora
-                        </button>
-
-                    </div>
-
-                </header>
-
-                <div class="container-ponto">
-
-                    <div class="tabela-container">
-
-                        <table>
-
-                            <thead>
-
-                                <tr>
-
-                                    <th>Ação</th>
-
-                                    <th>Nome</th>
-
-                                    <th>Unidade</th>
-
-                                    <th>Horário</th>
-
-                                    <th>Tipo</th>
-
-                                    <th>Excluir</th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody id="listaAjustesGeral"></tbody>
-
-                        </table>
-
-                    </div>
-
+            <section id="secao-ocorrencias" class="modulo-tela" style="display:none;">
+                <div class="header-flex">
+                    <h1>📋 Histórico Geral de Ocorrências e Justificativas</h1>
                 </div>
+                <div class="container-ponto">
+                    <div class="tabela-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Funcionário</th>
+                                    <th>Tipo de Afastamento</th>
+                                    <th>Início</th>
+                                    <th>Fim</th>
+                                    <th>Observação / Justificativa</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaOcorrenciasGeral"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
+            <section id="secao-ajustes" class="modulo-tela" style="display:none;">
+                <header class="header-flex">
+                    <h1>🔧 Ajustes de Ponto & Auditoria (Logs)</h1>
+                    <div class="acoes-ajustes">
+                        <button onclick="baixarDaNuvem()" class="btn-nuvem">☁️ Recuperar Nuvem</button>
+                        <button onclick="sincronizarManual()" class="btn-sync">🔄 Sincronizar Agora</button>
+                    </div>
+                </header>
+                <div class="container-ponto">
+                    <h4 style="margin-bottom: 10px;">📋 Histórico de Auditoria do Sistema (Logs)</h4>
+                    <div class="tabela-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Ação Executada</th>
+                                    <th>Data/Hora do Evento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaLogsAuditoria"></tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
         </main>
-
     </div>
 
-    <!-- ====================================================== -->
-    <!-- FIREBASE -->
-    <!-- ====================================================== -->
-
     <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        import {
-            initializeApp
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-
-        import {
-            getFirestore,
-            doc,
-            setDoc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-       const firebaseConfig = {
-    apiKey: "SUA_API_KEY_REAL_AQUI", // Pegue isso no console do Firebase
-    authDomain: "smartponto-3edbd.firebaseapp.com",
-    projectId: "smartponto-3edbd",
-    storageBucket: "smartponto-3edbd.appspot.com",
-    messagingSenderId: "398838648955",
-    appId: "SUA_APP_ID_REAL_AQUI" // Pegue isso no console do Firebase
-};
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY_REAL_AQUI", 
+            authDomain: "smartponto-3edbd.firebaseapp.com",
+            projectId: "smartponto-3edbd",
+            storageBucket: "smartponto-3edbd.appspot.com",
+            messagingSenderId: "398838648955",
+            appId: "SUA_APP_ID_REAL_AQUI" 
+        };
 
         const app = initializeApp(firebaseConfig);
-
         const db = getFirestore(app);
 
-        // ======================================================
-        // SALVAR NA NUVEM
-        // ======================================================
-
         window.sincronizarManual = async function () {
-
             try {
+                const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+                const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+                const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]');
+                const logs = JSON.parse(localStorage.getItem('logs') || '[]');
 
-                const funcionarios =
-                    JSON.parse(localStorage.getItem('funcionarios') || '[]');
-
-                const pontos =
-                    JSON.parse(localStorage.getItem('meusPontos') || '[]');
-
-                await setDoc(
-                    doc(db, "dados_sistema", "geral"),
-                    {
-                        funcionarios,
-                        pontos,
-                        ultimaSincronizacao: new Date().toISOString()
-                    }
-                );
-
-                console.log("☁️ Dados sincronizados");
-
+                await setDoc(doc(db, "dados_sistema", "geral"), {
+                    funcionarios,
+                    pontos,
+                    ocorrencias,
+                    logs,
+                    ultimaSincronizacao: new Date().toISOString()
+                });
+                alert("☁️ Dados sincronizados com sucesso!");
+                registrarLog("admin", "Sincronizou dados com a nuvem");
             } catch (erro) {
-
-                console.error("Erro ao salvar:", erro);
-
+                console.error(erro);
                 alert("Erro ao sincronizar com a nuvem");
-
             }
-
         };
-
-        // ======================================================
-        // BAIXAR DA NUVEM
-        // ======================================================
-
-        window.recuperarDadosNuvem = async function () {
-
-            try {
-
-                const documento =
-                    await getDoc(
-                        doc(db, "dados_sistema", "geral")
-                    );
-
-                if (documento.exists()) {
-
-                    const dados = documento.data();
-
-                    localStorage.setItem(
-                        'funcionarios',
-                        JSON.stringify(dados.funcionarios || [])
-                    );
-
-                    localStorage.setItem(
-                        'meusPontos',
-                        JSON.stringify(dados.pontos || [])
-                    );
-
-                    console.log("☁️ Dados recuperados");
-
-                }
-
-            } catch (erro) {
-
-                console.error("Erro ao recuperar:", erro);
-
-            }
-
-        };
-
-        // ======================================================
-        // RECUPERAR MANUALMENTE
-        // ======================================================
 
         window.baixarDaNuvem = async function () {
-
-            if (!confirm(
-                "Deseja substituir os dados locais pelos da nuvem?"
-            )) return;
-
-            await window.recuperarDadosNuvem();
-
-            alert("☁️ Dados recuperados!");
-
-            location.reload();
-
+            if (!confirm("Deseja substituir os dados locais?")) return;
+            try {
+                const documento = await getDoc(doc(db, "dados_sistema", "geral"));
+                if (documento.exists()) {
+                    const dados = documento.data();
+                    localStorage.setItem('funcionarios', JSON.stringify(dados.funcionarios || []));
+                    localStorage.setItem('meusPontos', JSON.stringify(dados.pontos || []));
+                    localStorage.setItem('ocorrencias', JSON.stringify(dados.ocorrencias || []));
+                    localStorage.setItem('logs', JSON.stringify(dados.logs || []));
+                    alert("☁️ Dados recuperados com sucesso!");
+                    location.reload();
+                }
+            } catch (erro) {
+                alert("Erro ao recuperar dados.");
+            }
         };
-
     </script>
 
     <script src="script.js"></script>
-
 </body>
 
 </html>
