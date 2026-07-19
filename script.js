@@ -1,7 +1,7 @@
 // ======================================================
 // CONFIGURAÇÕES GERAIS E SEGURANÇA
 // ======================================================
-const SENHA_MESTRE = "Victor@2026";
+const SENHA_MESTRE = "SmartPonto@2026";
 let cpfModalAtual = null;
 let dataModalAtual = null;
 
