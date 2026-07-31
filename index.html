@@ -11,6 +11,7 @@
 
 <body>
 
+    <!-- MODAL DE LOGIN GESTOR -->
     <div id="tela-login" class="modal-login" style="display: none;">
         <div class="login-box">
             <h2>SmartPonto</h2>
@@ -28,38 +29,43 @@
         </div>
     </div>
 
+    <!-- MODAL DE EDIÇÃO / TRATAMENTO DE PONTO -->
     <div id="modal-edicao" class="modal-edicao" style="display: none;">
         <div class="modal-box">
-            <h3 id="modal-titulo">✏️ Tratar Ponto / Justificativa</h3>
-            <p id="modal-nome"></p>
+            <h3 id="modal-titulo">✏️ Tratar Ponto / Lançar Horários</h3>
+            <p id="modal-nome" style="font-weight: bold; color: #1e293b; margin-bottom: 15px;"></p>
 
-            <div id="campos-ponto-existente">
-                <label>DATA E HORA:</label>
-                <input type="datetime-local" id="edit-horario">
-
-                <label>TIPO:</label>
-                <select id="edit-tipo">
-                    <option value="Entrada">Entrada</option>
-                    <option value="Saída">Saída</option>
-                </select>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">⏰ HORA ENTRADA:</label>
+                    <input type="time" id="edit-hora-entrada" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">⏰ HORA SAÍDA:</label>
+                    <input type="time" id="edit-hora-saida" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
             </div>
 
-            <div id="campos-justificativa-falta" style="display:none;">
-                <p style="color: #c62828; font-weight: bold;">⚠️ Ausência Detectada neste dia.</p>
-                <label>Selecione a Justificativa:</label>
-                <select id="edit-ocorrencia-tipo">
-                    <option value="Falta Justificada">📄 Falta Justificada</option>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">📌 OCORRÊNCIA / JUSTIFICATIVA:</label>
+                <select id="edit-ocorrencia-tipo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="Nenhuma">Nenhuma (Ponto Normal)</option>
+                    <option value="Saída para Curso">🎓 Saída para Curso</option>
+                    <option value="Curso">🎓 Curso (Dia Todo)</option>
                     <option value="Atestado">🏥 Atestado Médico</option>
                     <option value="Folga">🏖️ Folga</option>
                     <option value="Férias">🌴 Férias</option>
-                    <option value="Falta Injustificada">🔴 Manter como Falta Injustificada</option>
+                    <option value="Falta Justificada">📄 Falta Justificada</option>
+                    <option value="Falta Injustificada">🔴 Falta Injustificada</option>
                 </select>
             </div>
 
-            <label>Observação / Detalhes:</label>
-            <input type="text" id="edit-observacao" placeholder="Ex: Feriado local em Palmas, atestado anexo, etc.">
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">📝 OBSERVAÇÃO / DETALHES:</label>
+                <input type="text" id="edit-observacao" placeholder="Ex: Esqueceu de bater a saída, liberado para curso, etc." style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
 
-            <div class="modal-botoes">
+            <div class="modal-botoes" style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button onclick="salvarEdicaoModal()" class="btn-entrada">Salvar Alterações</button>
                 <button onclick="fecharModal()" class="btn-cancelar">Fechar</button>
             </div>
@@ -218,7 +224,7 @@
                         <div class="card" style="padding: 15px; background: #fff; border-radius: 8px;">
                             <h4 style="margin-top:0; margin-bottom:15px; display:flex; justify-content:space-between;">
                                 📅 Calendário de Frequência 
-                                <span style="font-size:12px; font-weight:normal; color:#666;">Vermelho indica ausência sem justificativa</span>
+                                <span style="font-size:12px; font-weight:normal; color:#666;">Clique no dia para editar/tratar</span>
                             </h4>
                             <div id="grade-calendario-ponto" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center;"></div>
                         </div>
@@ -307,17 +313,18 @@
         </main>
     </div>
 
+    <!-- MÓDULO FIREBASE FIRESTORE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "SUA_API_KEY_REAL_AQUI", 
+            apiKey: "COLE_SUA_API_KEY_REAL_AQUI", 
             authDomain: "smartponto-3edbd.firebaseapp.com",
             projectId: "smartponto-3edbd",
             storageBucket: "smartponto-3edbd.appspot.com",
             messagingSenderId: "398838648955",
-            appId: "SUA_APP_ID_REAL_AQUI" 
+            appId: "COLE_SEU_APP_ID_REAL_AQUI" 
         };
 
         const app = initializeApp(firebaseConfig);
@@ -338,10 +345,12 @@
                     ultimaSincronizacao: new Date().toISOString()
                 });
                 alert("☁️ Dados sincronizados com sucesso!");
-                registrarLog("admin", "Sincronizou dados com a nuvem");
+                if (typeof registrarLog === "function") {
+                    registrarLog("admin", "Sincronizou dados com a nuvem");
+                }
             } catch (erro) {
-                console.error(erro);
-                alert("Erro ao sincronizar com a nuvem");
+                console.error("Erro na sincronização:", erro);
+                alert("Erro ao sincronizar com a nuvem: " + erro.message);
             }
         };
 
@@ -357,9 +366,12 @@
                     localStorage.setItem('logs', JSON.stringify(dados.logs || []));
                     alert("☁️ Dados recuperados com sucesso!");
                     location.reload();
+                } else {
+                    alert("Nenhum dado encontrado na nuvem ainda.");
                 }
             } catch (erro) {
-                alert("Erro ao recuperar dados.");
+                console.error("Erro ao recuperar:", erro);
+                alert("Erro ao recuperar dados: " + erro.message);
             }
         };
     </script>
