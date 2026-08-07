@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartPonto - Gestão Pro</title>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -313,7 +314,7 @@
         </main>
     </div>
 
-    <!-- MÓDULO FIREBASE FIRESTORE -->
+    <!-- MÓDULO FIREBASE FIRESTORE COM SINCRONIZAÇÃO AUTOMÁTICA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -330,6 +331,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // --- FUNÇÃO PARA SALVAR TUDO NA NUVEM ---
         window.sincronizarManual = async function () {
             try {
                 const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
@@ -344,36 +346,56 @@
                     logs,
                     ultimaSincronizacao: new Date().toISOString()
                 });
-                alert("☁️ Dados sincronizados com sucesso!");
-                if (typeof registrarLog === "function") {
-                    registrarLog("admin", "Sincronizou dados com a nuvem");
-                }
+                console.log("☁️ Dados enviados para a nuvem!");
             } catch (erro) {
-                console.error("Erro na sincronização:", erro);
-                alert("Erro ao sincronizar com a nuvem: " + erro.message);
+                console.error("Erro na sincronização manual:", erro);
             }
         };
 
-        window.baixarDaNuvem = async function () {
-            if (!confirm("Deseja substituir os dados locais?")) return;
+        // --- FUNÇÃO PARA BUSCAR TUDO DA NUVEM E ATUALIZAR O LOCALSTORAGE ---
+        window.baixarDaNuvemSilencioso = async function () {
             try {
                 const documento = await getDoc(doc(db, "dados_sistema", "geral"));
                 if (documento.exists()) {
                     const dados = documento.data();
-                    localStorage.setItem('funcionarios', JSON.stringify(dados.funcionarios || []));
-                    localStorage.setItem('meusPontos', JSON.stringify(dados.pontos || []));
-                    localStorage.setItem('ocorrencias', JSON.stringify(dados.ocorrencias || []));
-                    localStorage.setItem('logs', JSON.stringify(dados.logs || []));
-                    alert("☁️ Dados recuperados com sucesso!");
-                    location.reload();
-                } else {
-                    alert("Nenhum dado encontrado na nuvem ainda.");
+
+                    if (dados.funcionarios) {
+                        localStorage.setItem('funcionarios', JSON.stringify(dados.funcionarios));
+                    }
+                    if (dados.pontos) {
+                        localStorage.setItem('meusPontos', JSON.stringify(dados.pontos));
+                    }
+                    if (dados.ocorrencias) {
+                        localStorage.setItem('ocorrencias', JSON.stringify(dados.ocorrencias));
+                    }
+                    if (dados.logs) {
+                        localStorage.setItem('logs', JSON.stringify(dados.logs));
+                    }
+
+                    if (typeof carregarTabelaPontos === "function") carregarTabelaPontos();
+                    if (typeof carregarFuncionarios === "function") carregarFuncionarios();
+
+                    console.log("🔄 Dados sincronizados automaticamente da nuvem!");
                 }
             } catch (erro) {
-                console.error("Erro ao recuperar:", erro);
-                alert("Erro ao recuperar dados: " + erro.message);
+                console.error("Erro no auto-sync:", erro);
             }
         };
+
+        // --- BOTÃO MANUAL DE RECUPERAR ---
+        window.baixarDaNuvem = async function () {
+            if (!confirm("Deseja substituir os dados locais pelos da nuvem?")) return;
+            await window.baixarDaNuvemSilencioso();
+            alert("☁️ Dados recuperados com sucesso!");
+            location.reload();
+        };
+
+        // --- EXECUÇÃO AUTOMÁTICA ---
+        window.baixarDaNuvemSilencioso();
+
+        setInterval(() => {
+            window.baixarDaNuvemSilencioso();
+        }, 5000);
     </script>
 
     <script src="script.js"></script>
