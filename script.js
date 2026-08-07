@@ -133,11 +133,11 @@ function mostrarTela(id) {
 }
 
 // ======================================================
-// REGISTRO DE PONTO
+// REGISTRO DE PONTO (CORRIGIDO E INTEGRADO COM O BANCO)
 // ======================================================
-
 async function baterPonto(tipo) {
-    const entrada = document.getElementById('identificador-ponto').value.trim();
+    const input = document.getElementById('identificador-ponto');
+    const entrada = input ? input.value.trim() : '';
     const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
 
     let funcionario = null;
@@ -147,7 +147,7 @@ async function baterPonto(tipo) {
     } else if (entrada.length === 11) {
         funcionario = funcionarios.find(f => f.cpf === entrada);
     } else {
-        alert("Digite PIN (4 dígitos) ou CPF (11 números)");
+        alert("Digite o PIN (4 dígitos) ou CPF (11 números)");
         return;
     }
 
@@ -159,7 +159,8 @@ async function baterPonto(tipo) {
     let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
     let agora = new Date();
 
-    if (funcionario.unidade === "Cuiabá") {
+    // Ajuste do fuso horário para a unidade de Cuiabá (-1 hora)
+    if (funcionario.unidade === "Cuiabá" || funcionario.Unidade === "Cuiabá") {
         agora.setHours(agora.getHours() - 1);
     }
 
@@ -171,14 +172,31 @@ async function baterPonto(tipo) {
         tipo: tipo
     };
 
+    // 1. Salva no navegador local (localStorage)
     pontos.push(novoRegistro);
     localStorage.setItem('meusPontos', JSON.stringify(pontos));
 
-    atualizarVisualizacaoMaster();
-    await sincronizarComFirebase();
+    // 2. Atualiza a tela imediatamente
+    if (typeof atualizarVisualizacaoMaster === 'function') {
+        atualizarVisualizacaoMaster();
+    }
 
-    document.getElementById('identificador-ponto').value = "";
-    alert(`✅ ${tipo} registrado para ${funcionario.nome || funcionario.Nome}`);
+    // 3. ENVIO BLINDADO PARA O BANCO DE DADOS (FIREBASE)
+    try {
+        if (typeof sincronizarComFirebase === 'function') {
+            await sincronizarComFirebase();
+            console.log("✅ Ponto sincronizado com o Firebase com sucesso!");
+        } else if (typeof window.sincronizarComFirebase === 'function') {
+            await window.sincronizarComFirebase();
+            console.log("✅ Ponto sincronizado com o Firebase com sucesso!");
+        }
+    } catch (erro) {
+        console.error("⚠️ Erro ao enviar ponto para o Banco de Dados Firebase:", erro);
+    }
+
+    // 4. Limpa o campo de entrada e confirma ao usuário
+    if (input) input.value = "";
+    alert(`✅ ${tipo} registrado com sucesso para ${funcionario.nome || funcionario.Nome}`);
 }
 
 // ======================================================
