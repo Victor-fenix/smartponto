@@ -3,7 +3,7 @@ let indexEdicaoGlobal = null;
 let cpfTratamentoGlobal = null;
 let dataTratamentoGlobal = null;
 
-// ======================================================
+/// ======================================================
 // INICIALIZAÇÃO DO SISTEMA
 // ======================================================
 
@@ -15,14 +15,18 @@ window.addEventListener('load', async () => {
             await window.recuperarDadosNuvem();
         }
 
-        carregarSeletores();
-        atualizarVisualizacaoMaster();
+        // --- ADICIONADOS PARA MOSTRAR PONTOS E FUNCIONÁRIOS ---
+        if (typeof exibirPontos === "function") exibirPontos();
+        if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
+
+        if (typeof carregarSeletores === "function") carregarSeletores();
+        if (typeof atualizarVisualizacaoMaster === "function") atualizarVisualizacaoMaster();
 
         if (sessionStorage.getItem('gestorLogado') === 'true') {
-            ativarModoGestor();
+            if (typeof ativarModoGestor === "function") ativarModoGestor();
         }
 
-        mostrarTela('secao-ponto');
+        if (typeof mostrarTela === "function") mostrarTela('secao-ponto');
         console.log("✅ Sistema iniciado com sucesso");
 
     } catch (erro) {
@@ -48,7 +52,12 @@ setInterval(async () => {
     try {
         if (typeof window.recuperarDadosNuvem === "function") {
             await window.recuperarDadosNuvem();
-            atualizarVisualizacaoMaster();
+            
+            // --- ADICIONADOS PARA ATUALIZAR A TELA A CADA 5 SEG ---
+            if (typeof exibirPontos === "function") exibirPontos();
+            if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
+            if (typeof atualizarVisualizacaoMaster === "function") atualizarVisualizacaoMaster();
+            
             console.log("☁️ Sistema sincronizado automaticamente");
         }
     } catch (erro) {
