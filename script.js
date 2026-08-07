@@ -1051,3 +1051,101 @@ setInterval(async () => {
         console.error("Erro na atualização automática:", erro);
     }
 }, 5000); // Roda a cada 5 segundos
+
+// --- FUNÇÃO BATER PONTO COM GEOLOCALIZAÇÃO ---
+function baterPonto(tipo) {
+    const input = document.getElementById('identificador-ponto');
+    const identificador = input.value.trim();
+
+    if (!identificador) {
+        alert("Por favor, digite seu PIN ou CPF!");
+        return;
+    }
+
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+    const funcionario = funcionarios.find(f => f.cpf === identificador || f.pin === identificador);
+
+    if (!funcionario) {
+        alert("Colaborador não encontrado!");
+        return;
+    }
+
+    // Solicita a localização por GPS
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (posicao) => {
+                const lat = posicao.coords.latitude;
+                const lng = posicao.coords.longitude;
+                const linkMapa = `https://www.google.com/maps?q=${lat},${lng}`;
+                salvarRegistroPonto(funcionario, tipo, linkMapa);
+            },
+            (erro) => {
+                console.warn("GPS indisponível ou permissão negada:", erro.message);
+                alert("Atenção: Ponto registrado sem localização (GPS não ativado ou permissão negada).");
+                salvarRegistroPonto(funcionario, tipo, "Sem localização");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    } else {
+        salvarRegistroPonto(funcionario, tipo, "GPS Indisponível");
+    }
+}
+
+// Auxiliar para salvar no localStorage e disparar a sincronização
+function salvarRegistroPonto(funcionario, tipo, localizacao) {
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+    const agora = new Date();
+
+    const novoPonto = {
+        id: Date.now(),
+        nome: funcionario.nome,
+        cpf: funcionario.cpf,
+        unidade: funcionario.unidade,
+        horario: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        data: agora.toLocaleDateString('pt-BR'),
+        tipo: tipo,
+        localizacao: localizacao
+    };
+
+    pontos.unshift(novoPonto);
+    localStorage.setItem('meusPontos', JSON.stringify(pontos));
+
+    if (typeof registrarLog === "function") {
+        registrarLog("Registro de Ponto", `${tipo} batida por ${funcionario.nome}`);
+    }
+
+    if (typeof window.sincronizarManual === "function") {
+        window.sincronizarManual();
+    }
+
+    document.getElementById('identificador-ponto').value = '';
+    alert(`Ponto de ${tipo} registrado para ${funcionario.nome}!`);
+
+    carregarTabelaPontos();
+}
+// ======================================================
+// --- FUNÇÃO PARA EXIBIR A TABELA COM A COLUNA DO MAPA ---
+// ======================================================
+function carregarTabelaPontos() {
+    const tabela = document.getElementById('tabelaPontos');
+    if (!tabela) return;
+
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+    tabela.innerHTML = '';
+
+    pontos.forEach(ponto => {
+        const localHtml = ponto.localizacao && ponto.localizacao.startsWith('http')
+            ? `<a href="${ponto.localizacao}" target="_blank" style="color: #0284c7; font-weight: bold; text-decoration: none;">📍 Ver no Mapa</a>`
+            : `<span style="color: #94a3b8;">${ponto.localizacao || 'N/A'}</span>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${ponto.nome}</td>
+            <td>${ponto.unidade}</td>
+            <td>${ponto.horario} (${ponto.data})</td>
+            <td>${ponto.tipo}</td>
+            <td>${localHtml}</td>
+        `;
+        tabela.appendChild(tr);
+    });
+}
