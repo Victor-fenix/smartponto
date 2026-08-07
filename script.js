@@ -1015,3 +1015,30 @@ window.exportarRelatorioExcel = function() {
 
     janelaImpressao.document.close();
 };
+
+// ======================================================
+// SINCRONIZAÇÃO AUTOMÁTICA EM TEMPO REAL ENTRE MÁQUINAS
+// ======================================================
+setInterval(async () => {
+    try {
+        if (typeof window.recuperarDadosNuvem === "function") {
+            await window.recuperarDadosNuvem();
+
+            if (typeof exibirPontos === "function") exibirPontos();
+            if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
+            if (typeof renderizarDashboard === "function") renderizarDashboard();
+
+            const secaoAjustes = document.getElementById('secao-ajustes');
+            if (secaoAjustes && secaoAjustes.style.display !== 'none') {
+                if (typeof atualizarTabelaAjustes === "function") atualizarTabelaAjustes();
+            }
+
+            const secaoBanco = document.getElementById('secao-banco');
+            if (secaoBanco && secaoBanco.style.display !== 'none') {
+                if (typeof calcularBancoHoras === "function") calcularBancoHoras();
+            }
+        }
+    } catch (erro) {
+        console.error("Erro na atualização automática:", erro);
+    }
+}, 5000); // Roda a cada 5 segundos
