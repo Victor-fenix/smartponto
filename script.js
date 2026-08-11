@@ -313,19 +313,27 @@ function abrirTratamentoDireto(cpf, dataStr) {
 
     // Procura registro de Entrada e Saída pré-existentes
     const pontoEntrada = pontosDoDia.find(p => p.tipo === "Entrada");
-    const pontoSaida = pontosDoDia.find(p => p.tipo === "Saída" || p.tipo === "Saída para Curso");
+   function carregarSeletores() {
+    const seletorExtrato = document.getElementById('filtro-funcionario-extrato');
+    if (!seletorExtrato) return;
 
-    const inputEntrada = document.getElementById('edit-hora-entrada');
-    const inputSaida = document.getElementById('edit-hora-saida');
+    const valorAtual = seletorExtrato.value;
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
 
-    // Preenche com o horário existente ou deixa em branco para preenchimento manual
-    if (inputEntrada) {
-        if (pontoEntrada) {
-            const d = new Date(pontoEntrada.horario);
-            inputEntrada.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        } else {
-            inputEntrada.value = ""; 
-        }
+    let opcoes = '<option value="todos">Todos os Colaboradores</option>';
+    
+    opcoes += funcionarios.map(f => 
+        `<option value="${f.cpf}">${f.nome || f.Nome} [${f.unidade || f.Unidade}]</option>`
+    ).join('');
+
+    seletorExtrato.innerHTML = opcoes;
+
+    if (valorAtual && (valorAtual === 'todos' || funcionarios.some(f => f.cpf === valorAtual))) {
+        seletorExtrato.value = valorAtual;
+    } else {
+        seletorExtrato.value = 'todos';
+    }
+}
     }
 
     if (inputSaida) {
@@ -355,7 +363,6 @@ function abrirTratamentoDireto(cpf, dataStr) {
     // Exibe o Modal
     const modal = document.getElementById('modal-edicao');
     if (modal) modal.style.display = 'flex';
-}
 
 function abrirModal(idx) {
     // Edição individual a partir da tabela de ajustes gerais
