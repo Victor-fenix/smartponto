@@ -3,7 +3,25 @@ let indexEdicaoGlobal = null;
 let cpfTratamentoGlobal = null;
 let dataTratamentoGlobal = null;
 
-/// ======================================================
+// ======================================================
+// HORÁRIO LOCAL (SEM CONVERSÃO DE FUSO)
+// ======================================================
+// Sempre grava o horário exatamente como o relógio do computador
+// que registrou o ponto mostrava, sem converter para UTC e sem
+// aplicar nenhum ajuste manual de fuso (ex.: Cuiabá x Goiás).
+// Isso garante que, ao consultar o ponto de qualquer unidade,
+// o horário exibido seja sempre o horário "real" de quem bateu o ponto.
+function formatarHorarioLocal(data) {
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    const hora = String(data.getHours()).padStart(2, '0');
+    const min = String(data.getMinutes()).padStart(2, '0');
+    const seg = String(data.getSeconds()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}T${hora}:${min}:${seg}`;
+}
+
+// ======================================================
 // INICIALIZAÇÃO DO SISTEMA
 // ======================================================
 
@@ -15,24 +33,22 @@ window.addEventListener('load', async () => {
             await window.recuperarDadosNuvem();
         }
 
-        // --- ADICIONADOS PARA MOSTRAR PONTOS E FUNCIONÁRIOS ---
-        if (typeof exibirPontos === "function") exibirPontos();
-        if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
+        carregarFuncionarios();
+        atualizarVisualizacaoMaster();
+        checarSessaoGestor();
+        mostrarTela('secao-ponto');
 
-        if (typeof carregarSeletores === "function") carregarSeletores();
-        if (typeof atualizarVisualizacaoMaster === "function") atualizarVisualizacaoMaster();
-
-        if (sessionStorage.getItem('gestorLogado') === 'true') {
-            if (typeof ativarModoGestor === "function") ativarModoGestor();
-        }
-
-        if (typeof mostrarTela === "function") mostrarTela('secao-ponto');
         console.log("✅ Sistema iniciado com sucesso");
-
     } catch (erro) {
         console.error("Erro ao iniciar sistema:", erro);
     }
 });
+
+function checarSessaoGestor() {
+    if (sessionStorage.getItem('gestorLogado') === 'true') {
+        ativarModoGestor();
+    }
+}
 
 // ======================================================
 // SINCRONIZAÇÃO AUTOMÁTICA
@@ -52,12 +68,10 @@ setInterval(async () => {
     try {
         if (typeof window.recuperarDadosNuvem === "function") {
             await window.recuperarDadosNuvem();
-            
-            // --- ADICIONADOS PARA ATUALIZAR A TELA A CADA 5 SEG ---
-            if (typeof exibirPontos === "function") exibirPontos();
-            if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
-            if (typeof atualizarVisualizacaoMaster === "function") atualizarVisualizacaoMaster();
-            
+
+            carregarFuncionarios();
+            atualizarVisualizacaoMaster();
+
             console.log("☁️ Sistema sincronizado automaticamente");
         }
     } catch (erro) {
@@ -70,16 +84,18 @@ setInterval(async () => {
 // ======================================================
 
 function abrirLogin() {
-    document.getElementById('tela-login').style.display = 'flex';
+    const tela = document.getElementById('tela-login');
+    if (tela) tela.style.display = 'flex';
 }
 
 function fecharLogin() {
-    document.getElementById('tela-login').style.display = 'none';
+    const tela = document.getElementById('tela-login');
+    if (tela) tela.style.display = 'none';
 }
 
 function autenticarGestor() {
-    const user = document.getElementById('login-usuario').value.trim();
-    const pass = document.getElementById('login-senha').value.trim();
+    const user = document.getElementById('login-usuario')?.value.trim();
+    const pass = document.getElementById('login-senha')?.value.trim();
 
     if (user === "admin" && pass === SENHA_MESTRE) {
         sessionStorage.setItem('gestorLogado', 'true');
@@ -102,6 +118,7 @@ function ativarModoGestor() {
     if (btnLogin) btnLogin.style.display = 'none';
     if (btnSair) btnSair.style.display = 'block';
 
+    carregarFuncionarios();
     renderizarDashboard();
 }
 
@@ -137,14 +154,22 @@ function mostrarTela(id) {
     const linkAtivo = document.querySelector(`.sidebar nav ul li a[onclick*="${id}"]`);
     if (linkAtivo) linkAtivo.classList.add('active');
 
+    if (id === 'secao-cadastro') carregarFuncionarios();
     if (id === 'secao-ajustes') atualizarTabelaAjustes();
     if (id === 'secao-banco') gerarRelatorioMensalConsolidado();
+
+    // Estas telas ainda não têm as funções de carregamento implementadas
+    // no restante do sistema (histórico de ocorrências / logs de auditoria).
+    if (id === 'secao-ocorrencias' && typeof carregarHistoricoOcorrencias === "function") {
+        carregarHistoricoOcorrencias();
+    }
 }
 
 // ======================================================
-// REGISTRO DE PONTO (CORRIGIDO E INTEGRADO COM O BANCO)
+// REGISTRO DE PONTO (COM GPS, SEM CONVERSÃO DE FUSO)
 // ======================================================
-async function baterPonto(tipo) {
+
+function baterPonto(tipo) {
     const input = document.getElementById('identificador-ponto');
     const entrada = input ? input.value.trim() : '';
     const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
@@ -165,47 +190,55 @@ async function baterPonto(tipo) {
         return;
     }
 
-    let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
-    let agora = new Date();
-
-    // Ajuste do fuso horário para a unidade de Cuiabá (-1 hora)
-    if (funcionario.unidade === "Cuiabá" || funcionario.Unidade === "Cuiabá") {
-        agora.setHours(agora.getHours() - 1);
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (posicao) => {
+                const lat = posicao.coords.latitude;
+                const lng = posicao.coords.longitude;
+                const linkMapa = `https://www.google.com/maps?q=${lat},${lng}`;
+                registrarPontoComLocal(funcionario, tipo, linkMapa);
+            },
+            (erro) => {
+                console.warn("GPS indisponível ou permissão negada:", erro.message);
+                registrarPontoComLocal(funcionario, tipo, "Sem localização (GPS negado)");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    } else {
+        registrarPontoComLocal(funcionario, tipo, "GPS indisponível");
     }
+}
 
+async function registrarPontoComLocal(funcionario, tipo, localizacao) {
+    let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+
+    // Usa o horário exato do relógio do computador de quem está batendo o
+    // ponto, sem nenhuma conversão de fuso — assim cada unidade (Goiás,
+    // Cuiabá, Palmas etc.) sempre registra e exibe o horário real dela.
     const novoRegistro = {
-        colaborador: funcionario.nome || funcionario.Nome,
+        colaborador: funcionario.nome,
         cpf: funcionario.cpf,
-        unidade: funcionario.unidade || funcionario.Unidade,
-        horario: agora.toISOString(),
-        tipo: tipo
+        unidade: funcionario.unidade,
+        horario: formatarHorarioLocal(new Date()),
+        tipo: tipo,
+        localizacao: localizacao
     };
 
-    // 1. Salva no navegador local (localStorage)
     pontos.push(novoRegistro);
     localStorage.setItem('meusPontos', JSON.stringify(pontos));
 
-    // 2. Atualiza a tela imediatamente
-    if (typeof atualizarVisualizacaoMaster === 'function') {
-        atualizarVisualizacaoMaster();
-    }
+    atualizarVisualizacaoMaster();
 
-    // 3. ENVIO BLINDADO PARA O BANCO DE DADOS (FIREBASE)
     try {
-        if (typeof sincronizarComFirebase === 'function') {
-            await sincronizarComFirebase();
-            console.log("✅ Ponto sincronizado com o Firebase com sucesso!");
-        } else if (typeof window.sincronizarComFirebase === 'function') {
-            await window.sincronizarComFirebase();
-            console.log("✅ Ponto sincronizado com o Firebase com sucesso!");
-        }
+        await sincronizarComFirebase();
+        console.log("✅ Ponto sincronizado com o Firebase com sucesso!");
     } catch (erro) {
         console.error("⚠️ Erro ao enviar ponto para o Banco de Dados Firebase:", erro);
     }
 
-    // 4. Limpa o campo de entrada e confirma ao usuário
+    const input = document.getElementById('identificador-ponto');
     if (input) input.value = "";
-    alert(`✅ ${tipo} registrado com sucesso para ${funcionario.nome || funcionario.Nome}`);
+    alert(`✅ ${tipo} registrado com sucesso para ${funcionario.nome}`);
 }
 
 // ======================================================
@@ -213,12 +246,12 @@ async function baterPonto(tipo) {
 // ======================================================
 
 async function salvarFuncionario() {
-    const nome = document.getElementById('cad-nome').value.trim();
-    const cpf = document.getElementById('cad-cpf').value.trim();
-    const pin = document.getElementById('cad-pin').value.trim();
+    const nome = document.getElementById('cad-nome')?.value.trim();
+    const cpf = document.getElementById('cad-cpf')?.value.trim();
+    const pin = document.getElementById('cad-pin')?.value.trim();
 
     if (!nome || !cpf || !pin) {
-        alert("Preencha todos os campos");
+        alert("⚠️ Preencha todos os campos");
         return;
     }
 
@@ -248,13 +281,13 @@ async function salvarFuncionario() {
         nome,
         cpf,
         pin,
-        unidade: document.getElementById('cad-unidade').value,
-        jornada: document.getElementById('cad-jornada').value
+        unidade: document.getElementById('cad-unidade')?.value,
+        jornada: document.getElementById('cad-jornada')?.value
     });
 
     localStorage.setItem('funcionarios', JSON.stringify(funcionarios));
 
-    carregarSeletores();
+    carregarFuncionarios();
     atualizarVisualizacaoMaster();
     await sincronizarComFirebase();
 
@@ -265,21 +298,58 @@ async function salvarFuncionario() {
     alert("✅ Funcionário cadastrado");
 }
 
-async function removerFunc(i) {
+async function removerFuncionario(index) {
     if (!confirm("Deseja excluir este funcionário?")) return;
 
     let funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
-    funcionarios.splice(i, 1);
+    funcionarios.splice(index, 1);
     localStorage.setItem('funcionarios', JSON.stringify(funcionarios));
 
-    carregarSeletores();
+    carregarFuncionarios();
     atualizarVisualizacaoMaster();
     await sincronizarComFirebase();
 }
 
+function carregarFuncionarios() {
+    const lista = document.getElementById('listaFuncionarios');
+    const seletorExtrato = document.getElementById('filtro-funcionario-extrato');
+    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+
+    if (lista) {
+        if (funcionarios.length === 0) {
+            lista.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum funcionário cadastrado.</td></tr>';
+        } else {
+            lista.innerHTML = funcionarios.map((f, i) => `
+                <tr>
+                    <td>${f.cpf}</td>
+                    <td><strong>${f.nome}</strong></td>
+                    <td>${f.unidade}</td>
+                    <td>${f.jornada || "08:00"}h</td>
+                    <td>
+                        <button onclick="removerFuncionario(${i})" class="btn-cancelar">❌ Remover</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    if (seletorExtrato) {
+        const valorAtual = seletorExtrato.value;
+        seletorExtrato.innerHTML = '<option value="">Selecione um Funcionário...</option>' +
+            funcionarios.map(f => `<option value="${f.cpf}">${f.nome} [${f.unidade}]</option>`).join('');
+
+        if (valorAtual && funcionarios.some(f => f.cpf === valorAtual)) {
+            seletorExtrato.value = valorAtual;
+        }
+    }
+
+    const cardTotal = document.getElementById('card-total-func');
+    if (cardTotal) cardTotal.innerText = funcionarios.length;
+}
+
 // ======================================================
-// // ======================================================
 // AJUSTES, CALENDÁRIO E MODAL DE EDIÇÃO / JUSTIFICATIVA
+// (usa o modal #modal-ajuste-ponto definido no HTML)
 // ======================================================
 
 function abrirTratamentoDireto(cpf, dataStr) {
@@ -292,18 +362,16 @@ function abrirTratamentoDireto(cpf, dataStr) {
     const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]');
 
     const func = funcionarios.find(f => f.cpf === cpf);
-    const nomeFunc = func ? (func.nome || func.Nome) : 'Colaborador';
+    const nomeFunc = func ? func.nome : 'Colaborador';
 
     const [ano, mes, dia] = dataStr.split('-');
     const dataFormatada = `${dia}/${mes}/${ano}`;
 
-    // Atualiza cabeçalho do Modal
     const elTitulo = document.getElementById('modal-titulo');
     const elNome = document.getElementById('modal-nome');
     if (elTitulo) elTitulo.innerText = "✏️ Tratar Ponto / Lançar Horários";
     if (elNome) elNome.innerText = `${nomeFunc} — Dia ${dataFormatada}`;
 
-    // Filtra todos os pontos registrados neste dia especificamente
     const pontosDoDia = pontos.filter(p => {
         if (p.cpf !== cpf) return false;
         const pData = new Date(p.horario);
@@ -311,41 +379,24 @@ function abrirTratamentoDireto(cpf, dataStr) {
         return pDataStr === dataStr;
     });
 
-    // Procura registro de Entrada e Saída pré-existentes
     const pontoEntrada = pontosDoDia.find(p => p.tipo === "Entrada");
-   function carregarSeletores() {
-    const seletorExtrato = document.getElementById('filtro-funcionario-extrato');
-    if (!seletorExtrato) return;
+    const pontoSaida = pontosDoDia.find(p => p.tipo === "Saída" || p.tipo === "Saída para Curso");
 
-    const valorAtual = seletorExtrato.value;
-    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
+    const inputEntrada = document.getElementById('edit-hora-entrada');
+    const inputSaida = document.getElementById('edit-hora-saida');
 
-    let opcoes = '<option value="todos">Todos os Colaboradores</option>';
-    
-    opcoes += funcionarios.map(f => 
-        `<option value="${f.cpf}">${f.nome || f.Nome} [${f.unidade || f.Unidade}]</option>`
-    ).join('');
-
-    seletorExtrato.innerHTML = opcoes;
-
-    if (valorAtual && (valorAtual === 'todos' || funcionarios.some(f => f.cpf === valorAtual))) {
-        seletorExtrato.value = valorAtual;
-    } else {
-        seletorExtrato.value = 'todos';
-    }
-}
+    if (inputEntrada) {
+        inputEntrada.value = pontoEntrada
+            ? `${String(new Date(pontoEntrada.horario).getHours()).padStart(2, '0')}:${String(new Date(pontoEntrada.horario).getMinutes()).padStart(2, '0')}`
+            : "";
     }
 
     if (inputSaida) {
-        if (pontoSaida) {
-            const d = new Date(pontoSaida.horario);
-            inputSaida.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        } else {
-            inputSaida.value = ""; 
-        }
+        inputSaida.value = pontoSaida
+            ? `${String(new Date(pontoSaida.horario).getHours()).padStart(2, '0')}:${String(new Date(pontoSaida.horario).getMinutes()).padStart(2, '0')}`
+            : "";
     }
 
-    // Carrega ocorrência/justificativa se houver
     const ocorrenciaDoDia = ocorrencias.find(o =>
         o.funcionarioCpf === cpf && dataStr >= o.dataInicio && dataStr <= o.dataFim
     );
@@ -360,36 +411,91 @@ function abrirTratamentoDireto(cpf, dataStr) {
         inputObs.value = ocorrenciaDoDia ? (ocorrenciaDoDia.observacao || '') : '';
     }
 
-    // Exibe o Modal
-    const modal = document.getElementById('modal-edicao');
+    const modal = document.getElementById('modal-ajuste-ponto');
     if (modal) modal.style.display = 'flex';
+}
 
 function abrirModal(idx) {
-    // Edição individual a partir da tabela de ajustes gerais
     const pontos = JSON.parse(localStorage.getItem("meusPontos") || "[]");
     indexEdicaoGlobal = idx;
     cpfTratamentoGlobal = null;
     dataTratamentoGlobal = null;
 
     const ponto = pontos[idx];
-    document.getElementById('modal-nome').innerText = ponto.colaborador || ponto.nome;
+    if (!ponto) return;
+
+    const elTitulo = document.getElementById('modal-titulo');
+    const elNome = document.getElementById('modal-nome');
+    if (elTitulo) elTitulo.innerText = "✏️ Editar Registro";
+    if (elNome) elNome.innerText = ponto.colaborador || '';
 
     const data = new Date(ponto.horario);
-    data.setMinutes(data.getMinutes() - data.getTimezoneOffset());
 
     const inputEntrada = document.getElementById('edit-hora-entrada');
     if (inputEntrada) {
         inputEntrada.value = `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
     }
+    const inputSaida = document.getElementById('edit-hora-saida');
+    if (inputSaida) inputSaida.value = "";
 
-    document.getElementById('modal-edicao').style.display = 'flex';
+    const modal = document.getElementById('modal-ajuste-ponto');
+    if (modal) modal.style.display = 'flex';
 }
 
 function fecharModal() {
-    document.getElementById('modal-edicao').style.display = 'none';
+    const modal = document.getElementById('modal-ajuste-ponto');
+    if (modal) modal.style.display = 'none';
     cpfTratamentoGlobal = null;
     dataTratamentoGlobal = null;
     indexEdicaoGlobal = null;
+}
+
+// Apaga todos os registros de ponto (entrada/saída) do dia/funcionário
+// que está aberto no modal, sem fechar o modal — assim dá pra lançar um
+// horário novo na sequência e clicar em "Salvar Alterações".
+async function excluirPontoDoDia() {
+    if (!cpfTratamentoGlobal || !dataTratamentoGlobal) {
+        alert("⚠️ Abra o dia pelo calendário (aba Extrato & Calendário) para poder excluir o ponto.");
+        return;
+    }
+
+    const [ano, mes, dia] = dataTratamentoGlobal.split('-');
+    if (!confirm(`Deseja realmente apagar o(s) registro(s) de ponto do dia ${dia}/${mes}/${ano}? Essa ação não pode ser desfeita.`)) {
+        return;
+    }
+
+    let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+
+    pontos = pontos.filter(p => {
+        if (p.cpf !== cpfTratamentoGlobal) return true;
+        const pData = new Date(p.horario);
+        const pDataStr = `${pData.getFullYear()}-${String(pData.getMonth() + 1).padStart(2, '0')}-${String(pData.getDate()).padStart(2, '0')}`;
+        return pDataStr !== dataTratamentoGlobal;
+    });
+
+    localStorage.setItem('meusPontos', JSON.stringify(pontos));
+
+    // Também remove qualquer ocorrência/justificativa lançada nesse dia
+    let ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]');
+    ocorrencias = ocorrencias.filter(o =>
+        !(o.funcionarioCpf === cpfTratamentoGlobal && dataTratamentoGlobal >= o.dataInicio && dataTratamentoGlobal <= o.dataFim)
+    );
+    localStorage.setItem('ocorrencias', JSON.stringify(ocorrencias));
+
+    // Limpa os campos do modal para já permitir lançar um ponto novo
+    const inputEntrada = document.getElementById('edit-hora-entrada');
+    const inputSaida = document.getElementById('edit-hora-saida');
+    const selectOcorrencia = document.getElementById('edit-ocorrencia-tipo');
+    const inputObs = document.getElementById('edit-observacao');
+    if (inputEntrada) inputEntrada.value = '';
+    if (inputSaida) inputSaida.value = '';
+    if (selectOcorrencia) selectOcorrencia.value = 'Nenhuma';
+    if (inputObs) inputObs.value = '';
+
+    atualizarVisualizacaoMaster();
+    await sincronizarComFirebase();
+
+    alert("🗑️ Ponto do dia apagado. Agora você pode lançar um novo horário e clicar em Salvar Alterações.");
 }
 
 async function salvarEdicaoModal() {
@@ -404,10 +510,9 @@ async function salvarEdicaoModal() {
         const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
 
         const func = funcionarios.find(f => f.cpf === cpfTratamentoGlobal);
-        const nomeFunc = func ? (func.nome || func.Nome) : 'Colaborador';
-        const unidadeFunc = func ? (func.unidade || func.Unidade) : 'Sede';
+        const nomeFunc = func ? func.nome : 'Colaborador';
+        const unidadeFunc = func ? func.unidade : 'Sede';
 
-        // 1. Limpa os registros de ponto do dia selecionado para recriá-los sem duplicidade
         pontos = pontos.filter(p => {
             if (p.cpf !== cpfTratamentoGlobal) return true;
             const pData = new Date(p.horario);
@@ -415,34 +520,29 @@ async function salvarEdicaoModal() {
             return pDataStr !== dataTratamentoGlobal;
         });
 
-        // 2. Se informou Horário de Entrada, adiciona o ponto
         if (horaEntrada) {
-            const isoEntrada = `${dataTratamentoGlobal}T${horaEntrada}:00`;
             pontos.push({
                 colaborador: nomeFunc,
                 cpf: cpfTratamentoGlobal,
                 unidade: unidadeFunc,
-                horario: new Date(isoEntrada).toISOString(),
+                horario: `${dataTratamentoGlobal}T${horaEntrada}:00`,
                 tipo: "Entrada"
             });
         }
 
-        // 3. Se informou Horário de Saída, adiciona o ponto (Trata também caso seja Saída para Curso)
         if (horaSaida) {
-            const isoSaida = `${dataTratamentoGlobal}T${horaSaida}:00`;
             const tipoSaida = (tipoOcorrencia === "Saída para Curso") ? "Saída para Curso" : "Saída";
             pontos.push({
                 colaborador: nomeFunc,
                 cpf: cpfTratamentoGlobal,
                 unidade: unidadeFunc,
-                horario: new Date(isoSaida).toISOString(),
+                horario: `${dataTratamentoGlobal}T${horaSaida}:00`,
                 tipo: tipoSaida
             });
         }
 
         localStorage.setItem('meusPontos', JSON.stringify(pontos));
 
-        // 4. Salva ou atualiza a justificativa/ocorrência no sistema
         ocorrencias = ocorrencias.filter(o =>
             !(o.funcionarioCpf === cpfTratamentoGlobal && dataTratamentoGlobal >= o.dataInicio && dataTratamentoGlobal <= o.dataFim)
         );
@@ -460,19 +560,18 @@ async function salvarEdicaoModal() {
         localStorage.setItem('ocorrencias', JSON.stringify(ocorrencias));
 
     } else if (indexEdicaoGlobal !== null) {
-        // Ajuste direto na tabela individual
         let pontos = JSON.parse(localStorage.getItem("meusPontos") || "[]");
-        if (horaEntrada) {
+        if (horaEntrada && pontos[indexEdicaoGlobal]) {
             const ponto = pontos[indexEdicaoGlobal];
-            const dataOrigem = new Date(ponto.horario).toISOString().split('T')[0];
-            ponto.horario = new Date(`${dataOrigem}T${horaEntrada}:00`).toISOString();
+            const dataOrigem = ponto.horario.split('T')[0];
+            ponto.horario = `${dataOrigem}T${horaEntrada}:00`;
             localStorage.setItem("meusPontos", JSON.stringify(pontos));
         }
     }
 
     fecharModal();
-    if (typeof atualizarVisualizacaoMaster === "function") atualizarVisualizacaoMaster();
-    if (typeof sincronizarComFirebase === "function") await sincronizarComFirebase();
+    atualizarVisualizacaoMaster();
+    await sincronizarComFirebase();
     alert("✅ Ponto e justificativas salvos com sucesso!");
 }
 
@@ -484,7 +583,7 @@ async function excluirPonto(idx) {
     localStorage.setItem("meusPontos", JSON.stringify(pontos));
 
     atualizarVisualizacaoMaster();
-    if (typeof sincronizarComFirebase === "function") await sincronizarComFirebase();
+    await sincronizarComFirebase();
 }
 
 function atualizarTabelaAjustes() {
@@ -502,7 +601,7 @@ function atualizarTabelaAjustes() {
                 <td style="text-align:center">
                     <button onclick="abrirModal(${idx})">✏️</button>
                 </td>
-                <td>${p.colaborador || p.nome || 'Não Identificado'}</td>
+                <td>${p.colaborador || 'Não Identificado'}</td>
                 <td>${p.unidade || '---'}</td>
                 <td>${new Date(p.horario).toLocaleString('pt-BR')}</td>
                 <td>${p.tipo}</td>
@@ -538,24 +637,8 @@ function renderizarDashboard() {
 // CONTROLE MASTER E RENDERIZADORES AUXILIARES
 // ======================================================
 
-function carregarSeletores() {
-    const seletorExtrato = document.getElementById('filtro-funcionario-extrato');
-    if (!seletorExtrato) return;
-
-    const valorAtual = seletorExtrato.value;
-    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
-
-    seletorExtrato.innerHTML = '<option value="">Escolha um Colaborador para o Calendário...</option>' +
-        funcionarios.map(f => `<option value="${f.cpf}">${f.nome || f.Nome} [${f.unidade || f.Unidade}]</option>`).join('');
-
-    if (valorAtual && funcionarios.some(f => f.cpf === valorAtual)) {
-        seletorExtrato.value = valorAtual;
-    }
-}
-
 window.atualizarVisualizacaoMaster = function () {
-    renderizarTabelaPontoSimples();
-    renderizarFuncionariosCadastro();
+    carregarTabelaPontosHoje();
     atualizarTabelaAjustes();
     gerarRelatorioMensalConsolidado();
     renderizarDashboard();
@@ -563,35 +646,30 @@ window.atualizarVisualizacaoMaster = function () {
     if (typeof renderizarLogs === "function") renderizarLogs();
 };
 
-function renderizarTabelaPontoSimples() {
-    const table = document.getElementById('tabelaPontos');
-    if (!table) return;
-    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+function carregarTabelaPontosHoje() {
+    const tabela = document.getElementById('tabelaPontos');
+    if (!tabela) return;
 
-    table.innerHTML = [...pontos].reverse().slice(0, 5).map(p => `
+    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+    const hojeStr = new Date().toLocaleDateString();
+
+    const pontosHoje = pontos.filter(p => new Date(p.horario).toLocaleDateString() === hojeStr);
+
+    if (pontosHoje.length === 0) {
+        tabela.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum ponto registrado hoje.</td></tr>';
+        return;
+    }
+
+    // Nesta tela pública (visível a qualquer funcionário) NÃO exibimos a
+    // localização real capturada por GPS — isso fica disponível só para o
+    // gestor, na tela "Extrato & Calendário".
+    tabela.innerHTML = [...pontosHoje].reverse().map(p => `
         <tr>
-            <td>${p.nome || p.colaborador || "Não Identificado"}</td>
+            <td>${p.colaborador || "Não Identificado"}</td>
             <td>${p.unidade || "Sede"}</td>
             <td>${new Date(p.horario).toLocaleTimeString('pt-BR')}</td>
             <td><span class="badge ${p.tipo === 'Entrada' ? 'badge-verde' : 'badge-vermelha'}">${p.tipo}</span></td>
-        </tr>
-    `).join('');
-}
-
-function renderizarFuncionariosCadastro() {
-    const table = document.getElementById('listaFuncionarios');
-    if (!table) return;
-    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
-
-    table.innerHTML = funcionarios.map((f, i) => `
-        <tr>
-            <td>${f.cpf}</td>
-            <td><strong>${f.nome || f.Nome}</strong></td>
-            <td>${f.unidade || f.Unidade}</td>
-            <td>Jornada: ${f.jornada || f.Jornada || "08:00"}h</td>
-            <td>
-                <button onclick="removerFunc(${i})" class="btn-cancelar">❌ Remover</button>
-            </td>
+            <td><span style="color:#94a3b8;">✅ Registrado</span></td>
         </tr>
     `).join('');
 }
@@ -627,11 +705,12 @@ function gerarRelatorioMensalConsolidado() {
     const busca = document.getElementById('busca-extrato')?.value.toLowerCase() || '';
     const unidadeFiltro = document.getElementById('filtro-unidade-extrato')?.value || '';
     const funcionarioAlvoCpf = document.getElementById('filtro-funcionario-extrato')?.value || '';
-    const filtroMes = document.getElementById('filtro-mes-extrato')?.value;
+    let filtroMes = document.getElementById('filtro-mes-extrato')?.value;
 
     if (!filtroMes) {
-        listaBancoHoras.innerHTML = '<tr><td colspan="8">Selecione o mês para visualizar.</td></tr>';
-        return;
+        const elMes = document.getElementById('filtro-mes-extrato');
+        filtroMes = new Date().toISOString().slice(0, 7);
+        if (elMes) elMes.value = filtroMes;
     }
 
     const [ano, mes] = filtroMes.split('-').map(Number);
@@ -652,13 +731,13 @@ function gerarRelatorioMensalConsolidado() {
     }
 
     funcionarios.forEach(funcionario => {
-        const nomeAtual = funcionario.nome || funcionario.Nome || "";
-        const unidadeAtual = funcionario.unidade || funcionario.Unidade || "";
+        const nomeAtual = funcionario.nome || "";
+        const unidadeAtual = funcionario.unidade || "";
 
         if (busca && !nomeAtual.toLowerCase().includes(busca)) return;
         if (unidadeFiltro && unidadeAtual !== unidadeFiltro) return;
 
-        const jornadaMinutos = converterHoraParaMinutos(funcionario.jornada || funcionario.Jornada || "08:00");
+        const jornadaMinutos = converterHoraParaMinutos(funcionario.jornada || "08:00");
 
         for (let dia = 1; dia <= totalDiasNoMes; dia++) {
             const dataAtualStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
@@ -684,7 +763,7 @@ function gerarRelatorioMensalConsolidado() {
             let trabalhadoMinutos = 0;
 
             const entradaPonto = pontosDoDia.find(p => p.tipo === "Entrada");
-            const saidaPonto = pontosDoDia.find(p => p.tipo === "Saída");
+            const saidaPonto = pontosDoDia.find(p => p.tipo === "Saída" || p.tipo === "Saída para Curso");
 
             if (entradaPonto) entradaStr = new Date(entradaPonto.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             if (saidaPonto) saidaStr = new Date(saidaPonto.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -724,6 +803,20 @@ function gerarRelatorioMensalConsolidado() {
                 const exibicaoTrabalhado = (ocorrenciaDoDia && ocorrenciaDoDia.tipo === "Curso") ? "CURSO" : converterMinutosParaHoraString(trabalhadoMinutos);
                 const sinalSaldo = saldoDoDia > 0 ? "+" : "";
 
+                // Localização (GPS) — visível apenas aqui, na tela do gestor.
+                // Não é exibida na tela pública de "Bater Ponto".
+                const linksLocal = [];
+                if (entradaPonto && entradaPonto.localizacao && entradaPonto.localizacao.startsWith('http')) {
+                    linksLocal.push(`<a href="${entradaPonto.localizacao}" target="_blank" title="Local da Entrada" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Entrada</a>`);
+                }
+                if (saidaPonto && saidaPonto.localizacao && saidaPonto.localizacao.startsWith('http')
+                    && (!entradaPonto || saidaPonto.localizacao !== entradaPonto.localizacao)) {
+                    linksLocal.push(`<a href="${saidaPonto.localizacao}" target="_blank" title="Local da Saída" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Saída</a>`);
+                }
+                const localizacaoHtml = linksLocal.length > 0
+                    ? linksLocal.join('<br>')
+                    : '<span style="color:#ccc; font-size:12px;">—</span>';
+
                 htmlTabela += `
                     <tr style="${ehFimDeSemana && trabalhadoMinutos === 0 ? 'background-color:#fcfcfc; opacity:0.85;' : ''}">
                         <td>${dataFormatadaExibir} ${ehFimDeSemana ? '<span style="font-size:10px; color:#aaa;">(FDS)</span>' : ''}</td>
@@ -733,6 +826,7 @@ function gerarRelatorioMensalConsolidado() {
                         <td>${saidaStr}</td>
                         <td><strong>${exibicaoTrabalhado}</strong></td>
                         <td style="${clSaldo}"><strong>${sinalSaldo}${converterMinutosParaHoraString(saldoDoDia)}</strong></td>
+                        <td>${localizacaoHtml}</td>
                         <td>
                             <button onclick="abrirTratamentoDireto('${funcionario.cpf}', '${dataAtualStr}')" class="btn-nuvem">✏️ Tratar</button>
                         </td>
@@ -742,7 +836,7 @@ function gerarRelatorioMensalConsolidado() {
         }
     });
 
-    listaBancoHoras.innerHTML = htmlTabela || '<tr><td colspan="8">Nenhum dado encontrado para os filtros selecionados.</td></tr>';
+    listaBancoHoras.innerHTML = htmlTabela || '<tr><td colspan="9">Nenhum dado encontrado para os filtros selecionados.</td></tr>';
 
     if (gradeCalendario) {
         if (!funcionarioAlvoCpf) {
@@ -829,10 +923,12 @@ function gerarRelatorioMensalConsolidado() {
         }
     }
 }
+
 // ======================================================
 // RELATÓRIO / MONITORIA CONTROLE DE HORÁRIO (SMARTPONTO)
 // ======================================================
-window.exportarRelatorioExcel = function() {
+
+window.exportarRelatorioExcel = function () {
     const filtroFuncCpf = document.getElementById('filtro-funcionario-extrato')?.value;
     const filtroMes = document.getElementById('filtro-mes-extrato')?.value;
 
@@ -846,36 +942,36 @@ window.exportarRelatorioExcel = function() {
     const [ano, mes] = filtroMes.split('-').map(Number);
     const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
     const funcionario = funcionarios.find(f => f.cpf === filtroFuncCpf);
-    
+
     if (!funcionario) return alert("Funcionário não encontrado.");
 
-    const nomeAtual = funcionario.nome || funcionario.Nome || "";
-    const unidadeAtual = funcionario.unidade || funcionario.Unidade || "";
+    const nomeAtual = funcionario.nome || "";
+    const unidadeAtual = funcionario.unidade || "";
 
     const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
     const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]');
 
     const totalDiasNoMes = new Date(ano, mes, 0).getDate();
-    
+
     const mesesNomes = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
     const nomeMesCorrente = mesesNomes[mes - 1];
 
     const janelaImpressao = window.open('', '_blank');
-    
+
     let conteudoTabelaHTML = "";
 
     for (let dia = 1; dia <= totalDiasNoMes; dia++) {
         const dataAtualStr = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
         const dataFormatadaExibir = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
-        
+
         const objetoData = new Date(ano, mes - 1, dia);
         const ehFimDeSemana = (objetoData.getDay() === 0 || objetoData.getDay() === 6);
 
         const pontosDoDia = pontos.filter(p => {
             const pData = new Date(p.horario);
-            const pDataStr = `${pData.getFullYear()}-${String(pData.getMonth()+1).padStart(2,'0')}-${String(pData.getDate()).padStart(2,'0')}`;
+            const pDataStr = `${pData.getFullYear()}-${String(pData.getMonth() + 1).padStart(2, '0')}-${String(pData.getDate()).padStart(2, '0')}`;
             return p.cpf === filtroFuncCpf && pDataStr === dataAtualStr;
-        }).sort((a,b) => new Date(a.horario) - new Date(b.horario));
+        }).sort((a, b) => new Date(a.horario) - new Date(b.horario));
 
         const ocorrenciaDoDia = ocorrencias.find(o => o.funcionarioCpf === filtroFuncCpf && dataAtualStr >= o.dataInicio && dataAtualStr <= o.dataFim);
 
@@ -886,8 +982,8 @@ window.exportarRelatorioExcel = function() {
         const entradaPonto = pontosDoDia.find(p => p.tipo === "Entrada");
         const saidaPonto = pontosDoDia.find(p => p.tipo === "Saída" || p.tipo === "Saída para Curso");
 
-        if (entradaPonto) entradaStr = new Date(entradaPonto.horario).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-        if (saidaPonto)  saidaStr = new Date(saidaPonto.horario).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+        if (entradaPonto) entradaStr = new Date(entradaPonto.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        if (saidaPonto) saidaStr = new Date(saidaPonto.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         if (entradaPonto && saidaPonto) {
             const ent = new Date(entradaPonto.horario);
@@ -909,12 +1005,10 @@ window.exportarRelatorioExcel = function() {
             horasTrabalhadasFormatada = "FOLGA";
         }
 
-        // Finais de semana sem registros não aparecem na impressão
         if (ehFimDeSemana && trabalhadoMinutos === 0) {
-            continue; 
+            continue;
         }
 
-        // Gera a linha da tabela
         conteudoTabelaHTML += `
             <tr>
                 <td style="width: 40%; text-align: left; padding-left: 15px;">${nomeAtual}</td>
@@ -934,71 +1028,16 @@ window.exportarRelatorioExcel = function() {
             <meta charset="UTF-8">
             <title>Monitoria Controle de Horário - ${nomeMesCorrente}</title>
             <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    color: #333;
-                    padding: 30px;
-                    margin: 0;
-                }
-                .container-cabecalho {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    position: relative;
-                    margin-bottom: 25px;
-                    width: 100%;
-                    max-width: 900px;
-                    margin-left: auto;
-                    margin-right: auto;
-                }
-                .titulo-folha {
-                    font-size: 24px;
-                    color: #555555;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                .logo-empresa {
-                    position: absolute;
-                    right: 0;
-                    height: 45px;
-                    display: flex;
-                    align-items: center;
-                    font-size: 20px;
-                    font-weight: bold;
-                }
-                .tabela-ponto {
-                    width: 100%;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    border-collapse: collapse;
-                }
-                .tabela-ponto td {
-                    border: 1px solid #000000;
-                    padding: 8px 5px;
-                    text-align: center;
-                    font-size: 14px;
-                    height: 24px;
-                }
-                .area-assinatura-bloco {
-                    margin-top: 100px;
-                    text-align: center;
-                    width: 100%;
-                }
-                .linha-assinatura {
-                    width: 60%;
-                    margin: 0 auto;
-                    border-bottom: 1px solid #000000;
-                    margin-bottom: 8px;
-                }
-                .texto-assinatura {
-                    font-family: Arial, sans-serif;
-                    font-weight: bold;
-                    font-size: 14px;
-                    color: #000;
-                }
-                @media print {
-                    body { padding: 0; }
-                }
+                body { font-family: Arial, sans-serif; color: #333; padding: 30px; margin: 0; }
+                .container-cabecalho { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 25px; width: 100%; max-width: 900px; margin-left: auto; margin-right: auto; }
+                .titulo-folha { font-size: 24px; color: #555555; font-weight: bold; text-align: center; }
+                .logo-empresa { position: absolute; right: 0; height: 45px; display: flex; align-items: center; font-size: 20px; font-weight: bold; }
+                .tabela-ponto { width: 100%; max-width: 900px; margin: 0 auto; border-collapse: collapse; }
+                .tabela-ponto td { border: 1px solid #000000; padding: 8px 5px; text-align: center; font-size: 14px; height: 24px; }
+                .area-assinatura-bloco { margin-top: 100px; text-align: center; width: 100%; }
+                .linha-assinatura { width: 60%; margin: 0 auto; border-bottom: 1px solid #000000; margin-bottom: 8px; }
+                .texto-assinatura { font-family: Arial, sans-serif; font-weight: bold; font-size: 14px; color: #000; }
+                @media print { body { padding: 0; } }
             </style>
         </head>
         <body>
@@ -1008,7 +1047,7 @@ window.exportarRelatorioExcel = function() {
                     <span style="color: #2563eb;">Smart</span><span style="color: #1e293b;">Ponto</span>
                 </div>
             </div>
-            
+
             <table class="tabela-ponto">
                 <tbody>
                     ${conteudoTabelaHTML}
@@ -1021,138 +1060,11 @@ window.exportarRelatorioExcel = function() {
             </div>
 
             <script>
-                window.onload = function() {
-                    window.print();
-                }
-            <\/script>
+                window.onload = function() { window.print(); }
+            </script>
         </body>
         </html>
     `);
 
     janelaImpressao.document.close();
 };
-
-// ======================================================
-// SINCRONIZAÇÃO AUTOMÁTICA EM TEMPO REAL ENTRE MÁQUINAS
-// ======================================================
-setInterval(async () => {
-    try {
-        if (typeof window.recuperarDadosNuvem === "function") {
-            await window.recuperarDadosNuvem();
-
-            if (typeof exibirPontos === "function") exibirPontos();
-            if (typeof atualizarListaFuncionarios === "function") atualizarListaFuncionarios();
-            if (typeof renderizarDashboard === "function") renderizarDashboard();
-
-            const secaoAjustes = document.getElementById('secao-ajustes');
-            if (secaoAjustes && secaoAjustes.style.display !== 'none') {
-                if (typeof atualizarTabelaAjustes === "function") atualizarTabelaAjustes();
-            }
-
-            const secaoBanco = document.getElementById('secao-banco');
-            if (secaoBanco && secaoBanco.style.display !== 'none') {
-                if (typeof calcularBancoHoras === "function") calcularBancoHoras();
-            }
-        }
-    } catch (erro) {
-        console.error("Erro na atualização automática:", erro);
-    }
-}, 5000); // Roda a cada 5 segundos
-
-// --- FUNÇÃO BATER PONTO COM GEOLOCALIZAÇÃO ---
-function baterPonto(tipo) {
-    const input = document.getElementById('identificador-ponto');
-    const identificador = input.value.trim();
-
-    if (!identificador) {
-        alert("Por favor, digite seu PIN ou CPF!");
-        return;
-    }
-
-    const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
-    const funcionario = funcionarios.find(f => f.cpf === identificador || f.pin === identificador);
-
-    if (!funcionario) {
-        alert("Colaborador não encontrado!");
-        return;
-    }
-
-    // Solicita a localização por GPS
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            (posicao) => {
-                const lat = posicao.coords.latitude;
-                const lng = posicao.coords.longitude;
-                const linkMapa = `https://www.google.com/maps?q=${lat},${lng}`;
-                salvarRegistroPonto(funcionario, tipo, linkMapa);
-            },
-            (erro) => {
-                console.warn("GPS indisponível ou permissão negada:", erro.message);
-                alert("Atenção: Ponto registrado sem localização (GPS não ativado ou permissão negada).");
-                salvarRegistroPonto(funcionario, tipo, "Sem localização");
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    } else {
-        salvarRegistroPonto(funcionario, tipo, "GPS Indisponível");
-    }
-}
-
-// Auxiliar para salvar no localStorage e disparar a sincronização
-function salvarRegistroPonto(funcionario, tipo, localizacao) {
-    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
-    const agora = new Date();
-
-    const novoPonto = {
-        id: Date.now(),
-        nome: funcionario.nome,
-        cpf: funcionario.cpf,
-        unidade: funcionario.unidade,
-        horario: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        data: agora.toLocaleDateString('pt-BR'),
-        tipo: tipo,
-        localizacao: localizacao
-    };
-
-    pontos.unshift(novoPonto);
-    localStorage.setItem('meusPontos', JSON.stringify(pontos));
-
-    if (typeof registrarLog === "function") {
-        registrarLog("Registro de Ponto", `${tipo} batida por ${funcionario.nome}`);
-    }
-
-    if (typeof window.sincronizarManual === "function") {
-        window.sincronizarManual();
-    }
-
-    document.getElementById('identificador-ponto').value = '';
-    alert(`Ponto de ${tipo} registrado para ${funcionario.nome}!`);
-
-    carregarTabelaPontos();
-}
-// ======================================================
-// --- FUNÇÃO PARA EXIBIR A TABELA COM A COLUNA DO MAPA ---
-// ======================================================
-function carregarTabelaPontos() {
-    const tabela = document.getElementById('tabelaPontos');
-    if (!tabela) return;
-
-    const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
-    tabela.innerHTML = '';
-
-    pontos.forEach(ponto => {
-        const localHtml = ponto.localizacao && ponto.localizacao.startsWith('http')
-            ? `<a href="${ponto.localizacao}" target="_blank" style="color: #0284c7; font-weight: bold; text-decoration: none;">📍 Ver no Mapa</a>`
-            : `<span style="color: #94a3b8;">${ponto.localizacao || 'N/A'}</span>`;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${ponto.nome}</td>
-            <td>${ponto.unidade}</td>
-            <td>${ponto.horario} (${ponto.data})</td>
-            <td>${ponto.tipo}</td>
-            <td>${localHtml}</td>
-        `;
-        tabela.appendChild(tr);
-    });
-}
