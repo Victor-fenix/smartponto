@@ -322,86 +322,526 @@
         </main>
     </div>
 
-    <!-- MÓDULO FIREBASE FIRESTORE COM SINCRONIZAÇÃO COMPATÍVEL -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    <!-- ====================================================== -->
+<!-- FIREBASE / FIRESTORE - SINCRONIZAÇÃO DO SMARTPONTO -->
+<!-- ====================================================== -->
 
-        // Cole suas chaves do Firebase Console aqui:
-        const firebaseConfig = {
-            apiKey: "SUA_API_KEY_AQUI",
-            authDomain: "smartponto-3edbd.firebaseapp.com",
-            projectId: "smartponto-3edbd",
-            storageBucket: "smartponto-3edbd.appspot.com",
-            messagingSenderId: "398838648955",
-            appId: "SEU_APP_ID_AQUI"
+<script type="module">
+
+    import { initializeApp }
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
+    import {
+        getFirestore,
+        doc,
+        setDoc,
+        getDoc
+    }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+
+    // ======================================================
+    // CONFIGURAÇÃO REAL DO FIREBASE
+    // ======================================================
+
+    const firebaseConfig = {
+
+        apiKey: "AIzaSyC5KwujDQEF97oyasPkErA6Myheyrk7zqI",
+
+        authDomain:
+            "smartponto-3edbd.firebaseapp.com",
+
+        projectId:
+            "smartponto-3edbd",
+
+        storageBucket:
+            "smartponto-3edbd.firebasestorage.app",
+
+        messagingSenderId:
+            "398838648955",
+
+        appId:
+            "1:398838648955:web:a1817c64a140117e8392de"
+
+    };
+
+
+    // ======================================================
+    // INICIALIZAÇÃO
+    // ======================================================
+
+    let db = null;
+
+    try {
+
+        const app = initializeApp(firebaseConfig);
+
+        db = getFirestore(app);
+
+        console.log("🔥 Firebase conectado.");
+
+    } catch (erro) {
+
+        console.error(
+            "❌ Erro ao inicializar Firebase:",
+            erro
+        );
+
+    }
+
+
+    // ======================================================
+    // REFERÊNCIA ÚNICA DO BANCO
+    // NÃO ALTERAR
+    // ======================================================
+
+    const referenciaBanco =
+        () => doc(
+            db,
+            "dados_sistema",
+            "geral"
+        );
+
+
+    // ======================================================
+    // LER DADOS DO LOCALSTORAGE
+    // ======================================================
+
+    function pegarDadosLocais() {
+
+        return {
+
+            funcionarios:
+                JSON.parse(
+                    localStorage.getItem("funcionarios") || "[]"
+                ),
+
+            pontos:
+                JSON.parse(
+                    localStorage.getItem("meusPontos") || "[]"
+                ),
+
+            ocorrencias:
+                JSON.parse(
+                    localStorage.getItem("ocorrencias") || "[]"
+                ),
+
+            logs:
+                JSON.parse(
+                    localStorage.getItem("logs") || "[]"
+                )
+
         };
 
-        let db = null;
-        try {
-            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-            } else {
-                console.warn("⚠️ Firebase operando em modo offline. Insira aapiKey e appId válidos no HTML.");
-            }
-        } catch (e) {
-            console.error("Erro na inicialização do Firebase:", e);
+    }
+
+
+    // ======================================================
+    // SALVAR NO FIRESTORE
+    // ======================================================
+
+    window.sincronizarManual = async function () {
+
+        if (!db) {
+
+            console.error(
+                "❌ Firebase não está conectado."
+            );
+
+            return false;
+
         }
 
-        // --- SALVAR DADOS NA NUVEM ---
-        window.sincronizarManual = async function () {
-            if (!db) return;
-            try {
-                const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
-                const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
-                const ocorrencias = JSON.parse(localStorage.getItem('ocorrencias') || '[]');
-                const logs = JSON.parse(localStorage.getItem('logs') || '[]');
 
-                await setDoc(doc(db, "dados_sistema", "geral"), {
-                    funcionarios,
-                    pontos,
-                    ocorrencias,
-                    logs,
-                    ultimaSincronizacao: new Date().toISOString()
-                });
-                console.log("☁️ Dados sincronizados na nuvem!");
-            } catch (erro) {
-                console.error("Erro na sincronização manual:", erro);
-            }
-        };
+        try {
 
-        // --- BUSCAR DADOS DA NUVEM ---
-        window.recuperarDadosNuvem = async function () {
-            if (!db) return;
-            try {
-                const documento = await getDoc(doc(db, "dados_sistema", "geral"));
-                if (documento.exists()) {
-                    const dados = documento.data();
+            const dados =
+                pegarDadosLocais();
 
-                    if (dados.funcionarios) localStorage.setItem('funcionarios', JSON.stringify(dados.funcionarios));
-                    if (dados.pontos) localStorage.setItem('meusPontos', JSON.stringify(dados.pontos));
-                    if (dados.ocorrencias) localStorage.setItem('ocorrencias', JSON.stringify(dados.ocorrencias));
-                    if (dados.logs) localStorage.setItem('logs', JSON.stringify(dados.logs));
+
+            await setDoc(
+
+                referenciaBanco(),
+
+                {
+
+                    funcionarios:
+                        dados.funcionarios,
+
+                    pontos:
+                        dados.pontos,
+
+                    ocorrencias:
+                        dados.ocorrencias,
+
+                    logs:
+                        dados.logs,
+
+                    ultimaSincronizacao:
+                        new Date().toISOString()
+
                 }
-            } catch (erro) {
-                console.error("Erro no auto-sync:", erro);
+
+            );
+
+
+            console.log(
+                "☁️ Dados enviados para o Firebase."
+            );
+
+
+            return true;
+
+
+        } catch (erro) {
+
+            console.error(
+                "❌ ERRO AO SALVAR NO FIRESTORE:",
+                erro
+            );
+
+
+            console.error(
+                "Código:",
+                erro.code
+            );
+
+
+            console.error(
+                "Mensagem:",
+                erro.message
+            );
+
+
+            return false;
+
+        }
+
+    };
+
+
+    // ======================================================
+    // RECUPERAR DADOS DO FIRESTORE
+    // ======================================================
+
+    window.recuperarDadosNuvem = async function () {
+
+        if (!db) {
+
+            console.error(
+                "❌ Firebase não está conectado."
+            );
+
+            return false;
+
+        }
+
+
+        try {
+
+            const documento =
+                await getDoc(
+                    referenciaBanco()
+                );
+
+
+            // ------------------------------------------------
+            // DOCUMENTO NÃO EXISTE
+            // ------------------------------------------------
+
+            if (!documento.exists()) {
+
+                console.warn(
+                    "⚠️ O documento dados_sistema/geral ainda não existe."
+                );
+
+                return false;
+
             }
-        };
 
-        window.baixarDaNuvem = async function () {
-            if (!confirm("Deseja substituir os dados locais pelos da nuvem?")) return;
+
+            const dados =
+                documento.data();
+
+
+            // ------------------------------------------------
+            // FUNCIONÁRIOS
+            // ------------------------------------------------
+
+            if (
+                Array.isArray(
+                    dados.funcionarios
+                )
+            ) {
+
+                localStorage.setItem(
+
+                    "funcionarios",
+
+                    JSON.stringify(
+                        dados.funcionarios
+                    )
+
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // PONTOS
+            // ------------------------------------------------
+
+            if (
+                Array.isArray(
+                    dados.pontos
+                )
+            ) {
+
+                localStorage.setItem(
+
+                    "meusPontos",
+
+                    JSON.stringify(
+                        dados.pontos
+                    )
+
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // OCORRÊNCIAS
+            // ------------------------------------------------
+
+            if (
+                Array.isArray(
+                    dados.ocorrencias
+                )
+            ) {
+
+                localStorage.setItem(
+
+                    "ocorrencias",
+
+                    JSON.stringify(
+                        dados.ocorrencias
+                    )
+
+                );
+
+            }
+
+
+            // ------------------------------------------------
+            // LOGS
+            // ------------------------------------------------
+
+            if (
+                Array.isArray(
+                    dados.logs
+                )
+            ) {
+
+                localStorage.setItem(
+
+                    "logs",
+
+                    JSON.stringify(
+                        dados.logs
+                    )
+
+                );
+
+            }
+
+
+            console.log(
+                "☁️ Dados recuperados do Firebase."
+            );
+
+
+            return true;
+
+
+        } catch (erro) {
+
+            console.error(
+                "❌ ERRO AO LER O FIRESTORE:",
+                erro
+            );
+
+
+            console.error(
+                "Código:",
+                erro.code
+            );
+
+
+            console.error(
+                "Mensagem:",
+                erro.message
+            );
+
+
+            return false;
+
+        }
+
+    };
+
+
+    // ======================================================
+    // BOTÃO "RECUPERAR NUVEM"
+    // ======================================================
+
+    window.baixarDaNuvem = async function () {
+
+        const confirmar =
+            confirm(
+                "Deseja substituir os dados desta máquina pelos dados da nuvem?"
+            );
+
+
+        if (!confirmar) {
+
+            return;
+
+        }
+
+
+        const sucesso =
             await window.recuperarDadosNuvem();
-            alert("☁️ Dados recuperados com sucesso!");
-            location.reload();
-        };
 
-        // Executa ao carregar
-        window.recuperarDadosNuvem();
-    </script>
 
-    <!-- JS PRINCIPAL -->
-    <script src="script.js"></script>
-</body>
+        if (!sucesso) {
 
-</html>
+            alert(
+                "❌ Não foi possível recuperar os dados da nuvem.\n\nVeja o Console (F12) para identificar o erro."
+            );
+
+            return;
+
+        }
+
+
+        alert(
+            "☁️ Dados recuperados da nuvem com sucesso!"
+        );
+
+
+        location.reload();
+
+    };
+
+
+    // ======================================================
+    // TESTE AUTOMÁTICO DO BANCO
+    // ======================================================
+
+    window.testarFirebase = async function () {
+
+        console.log(
+            "🔎 Testando conexão com o Firebase..."
+        );
+
+
+        if (!db) {
+
+            console.error(
+                "❌ Firebase não inicializado."
+            );
+
+            alert(
+                "❌ Firebase não inicializado."
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            const documento =
+                await getDoc(
+                    referenciaBanco()
+                );
+
+
+            if (documento.exists()) {
+
+                console.log(
+                    "✅ FIREBASE OK!"
+                );
+
+                console.log(
+                    "📦 Documento encontrado:",
+                    documento.data()
+                );
+
+
+                alert(
+                    "✅ Banco conectado!\n\nDocumento dados_sistema/geral encontrado."
+                );
+
+            } else {
+
+                console.warn(
+                    "⚠️ Firebase conectado, mas o documento ainda não existe."
+                );
+
+
+                alert(
+                    "⚠️ Firebase conectado, mas o documento dados_sistema/geral ainda não existe."
+                );
+
+            }
+
+
+        } catch (erro) {
+
+            console.error(
+                "❌ FIREBASE BLOQUEOU A OPERAÇÃO:",
+                erro
+            );
+
+
+            alert(
+                "❌ Erro no Firebase:\n\n" +
+                erro.code +
+                "\n\n" +
+                erro.message
+            );
+
+        }
+
+    };
+
+
+    // ======================================================
+    // RECUPERA DADOS AO ABRIR O SISTEMA
+    // ======================================================
+
+    window.addEventListener(
+        "load",
+        async function () {
+
+            console.log(
+                "☁️ Verificando dados da nuvem..."
+            );
+
+
+            await window.recuperarDadosNuvem();
+
+        }
+    );
+
+
+</script>
+
+<!-- ====================================================== -->
+<!-- JS PRINCIPAL -->
+<!-- ====================================================== -->
+
+<script src="script.js"></script>
