@@ -22,6 +22,31 @@ function formatarHorarioLocal(data) {
 }
 
 // ======================================================
+// GEOFENCE — LOCALIZAÇÃO OFICIAL DE CADA UNIDADE
+// ======================================================
+// Coordenadas do endereço cadastrado de cada unidade e o raio (em metros)
+// tolerado para considerar que o ponto foi batido "no local de trabalho".
+// Se precisar ajustar endereço ou raio de alguma unidade, é só mudar aqui.
+const LOCAIS_UNIDADES = {
+    "Sede": { lat: -16.7960607, lng: -49.2600375, raioMetros: 300 },
+    "Cuiabá": { lat: -15.6509541, lng: -55.9954212, raioMetros: 300 },
+    "Palmas": { lat: -10.2248487, lng: -48.3141014, raioMetros: 300 }
+};
+
+// Distância em metros entre dois pontos (fórmula de Haversine)
+function calcularDistanciaMetros(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // raio da Terra em metros
+    const toRad = (v) => (v * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+// ======================================================
 // INICIALIZAÇÃO DO SISTEMA
 // ======================================================
 
@@ -196,20 +221,32 @@ function baterPonto(tipo) {
                 const lat = posicao.coords.latitude;
                 const lng = posicao.coords.longitude;
                 const linkMapa = `https://www.google.com/maps?q=${lat},${lng}`;
-                registrarPontoComLocal(funcionario, tipo, linkMapa);
+
+                let distanciaMetros = null;
+                let foraDoRaio = false;
+
+                const localOficial = LOCAIS_UNIDADES[funcionario.unidade];
+                if (localOficial) {
+                    distanciaMetros = Math.round(
+                        calcularDistanciaMetros(lat, lng, localOficial.lat, localOficial.lng)
+                    );
+                    foraDoRaio = distanciaMetros > localOficial.raioMetros;
+                }
+
+                registrarPontoComLocal(funcionario, tipo, linkMapa, distanciaMetros, foraDoRaio);
             },
             (erro) => {
                 console.warn("GPS indisponível ou permissão negada:", erro.message);
-                registrarPontoComLocal(funcionario, tipo, "Sem localização (GPS negado)");
+                registrarPontoComLocal(funcionario, tipo, "Sem localização (GPS negado)", null, false);
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
     } else {
-        registrarPontoComLocal(funcionario, tipo, "GPS indisponível");
+        registrarPontoComLocal(funcionario, tipo, "GPS indisponível", null, false);
     }
 }
 
-async function registrarPontoComLocal(funcionario, tipo, localizacao) {
+async function registrarPontoComLocal(funcionario, tipo, localizacao, distanciaMetros, foraDoRaio) {
     let pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
 
     // Usa o horário exato do relógio do computador de quem está batendo o
@@ -221,7 +258,9 @@ async function registrarPontoComLocal(funcionario, tipo, localizacao) {
         unidade: funcionario.unidade,
         horario: formatarHorarioLocal(new Date()),
         tipo: tipo,
-        localizacao: localizacao
+        localizacao: localizacao,
+        distanciaMetros: distanciaMetros,
+        foraDoRaio: foraDoRaio
     };
 
     pontos.push(novoRegistro);
@@ -238,7 +277,12 @@ async function registrarPontoComLocal(funcionario, tipo, localizacao) {
 
     const input = document.getElementById('identificador-ponto');
     if (input) input.value = "";
-    alert(`✅ ${tipo} registrado com sucesso para ${funcionario.nome}`);
+
+    if (foraDoRaio) {
+        alert(`⚠️ ${tipo} registrado para ${funcionario.nome}, mas FORA do raio da unidade (${distanciaMetros}m de distância). Isso ficará sinalizado para o gestor.`);
+    } else {
+        alert(`✅ ${tipo} registrado com sucesso para ${funcionario.nome}`);
+    }
 }
 
 // ======================================================
@@ -621,15 +665,19 @@ function atualizarTabelaAjustes() {
 function renderizarDashboard() {
     const funcionarios = JSON.parse(localStorage.getItem('funcionarios') || '[]');
     const pontos = JSON.parse(localStorage.getItem('meusPontos') || '[]');
+    const hojeStr = new Date().toLocaleDateString();
+
+    const pontosHoje = pontos.filter(p => new Date(p.horario).toLocaleDateString() === hojeStr);
 
     const cardTotal = document.getElementById('card-total-func');
     const cardHoje = document.getElementById('card-registros-hoje');
+    const cardAlertas = document.getElementById('card-alertas-criticos');
 
     if (cardTotal) cardTotal.innerText = funcionarios.length;
-    if (cardHoje) {
-        cardHoje.innerText = pontos.filter(p =>
-            new Date(p.horario).toLocaleDateString() === new Date().toLocaleDateString()
-        ).length;
+    if (cardHoje) cardHoje.innerText = pontosHoje.length;
+    if (cardAlertas) {
+        const alertasHoje = pontosHoje.filter(p => p.foraDoRaio === true).length;
+        cardAlertas.innerText = alertasHoje;
     }
 }
 
@@ -807,11 +855,17 @@ function gerarRelatorioMensalConsolidado() {
                 // Não é exibida na tela pública de "Bater Ponto".
                 const linksLocal = [];
                 if (entradaPonto && entradaPonto.localizacao && entradaPonto.localizacao.startsWith('http')) {
-                    linksLocal.push(`<a href="${entradaPonto.localizacao}" target="_blank" title="Local da Entrada" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Entrada</a>`);
+                    const alertaEntrada = entradaPonto.foraDoRaio
+                        ? `<br><span style="color:#e74c3c; font-weight:bold; font-size:11px;">⚠️ Fora do local (${entradaPonto.distanciaMetros}m)</span>`
+                        : '';
+                    linksLocal.push(`<a href="${entradaPonto.localizacao}" target="_blank" title="Local da Entrada" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Entrada</a>${alertaEntrada}`);
                 }
                 if (saidaPonto && saidaPonto.localizacao && saidaPonto.localizacao.startsWith('http')
                     && (!entradaPonto || saidaPonto.localizacao !== entradaPonto.localizacao)) {
-                    linksLocal.push(`<a href="${saidaPonto.localizacao}" target="_blank" title="Local da Saída" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Saída</a>`);
+                    const alertaSaida = saidaPonto.foraDoRaio
+                        ? `<br><span style="color:#e74c3c; font-weight:bold; font-size:11px;">⚠️ Fora do local (${saidaPonto.distanciaMetros}m)</span>`
+                        : '';
+                    linksLocal.push(`<a href="${saidaPonto.localizacao}" target="_blank" title="Local da Saída" style="color:#0284c7; text-decoration:none; font-size:12px;">📍 Saída</a>${alertaSaida}`);
                 }
                 const localizacaoHtml = linksLocal.length > 0
                     ? linksLocal.join('<br>')
@@ -1068,3 +1122,4 @@ window.exportarRelatorioExcel = function () {
 
     janelaImpressao.document.close();
 };
+
